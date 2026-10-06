@@ -49,6 +49,7 @@ input,select,textarea{display:block;width:100%;padding:10px;margin-top:4px;borde
 .pc{background:#fff;border:1px solid var(--ln);border-radius:16px;padding:6px 4px 12px;margin:12px 0}.pc h3{margin:10px 12px 4px;font-size:16px}.pc .ln{padding:8px 12px}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}.cards .pc{margin:0}
 .pbw{padding:8px 12px 0}.pb{height:8px;background:#E3EAEE;border-radius:4px;overflow:hidden}.pb i{display:block;height:100%;background:var(--ac)}.pbw small{color:var(--mut)}
+.qa{display:flex;gap:8px;margin:0 0 12px}.qa .add{flex:1;margin:0}.stat small{display:block;color:var(--mut);font-size:12px;margin-top:2px}
 #toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 14px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20;max-width:90%}
 #toast.s{opacity:1}
 </style></head><body>
@@ -69,7 +70,7 @@ const $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"]/g,c=>
 const rp=n=>'Rp '+Number(n||0).toLocaleString('id-ID'), iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const D={
 'Transaksi':{lbl:'transaksi',ttl:'Deskripsi',amt:'Jumlah (Rp)',meta:r=>[r.Tanggal,r.Kategori,r.Metode].filter(Boolean).join(' / '),
- f:[['Tanggal','date'],['Tipe',['Pemasukan','Pengeluaran','Tabungan']],['Kategori',['Gaji','Bonus','Makan','Transport','Tagihan','Belanja','Hiburan','Kesehatan','Pendidikan','Tabungan','Lainnya']],['Deskripsi'],['Jumlah (Rp)','num'],['Metode',['Tunai','Transfer Bank','E-Wallet','Kartu Debit','Kartu Kredit']],['Catatan','area'],['Link Gambar','img']]},
+ f:[['Tanggal','date'],['Tipe',['Pemasukan','Pengeluaran','Tabungan']],['Kategori',['Gaji','Bonus','Makan','Transport','Tagihan','Belanja','Hiburan','Kesehatan','Pendidikan','Tabungan','Lainnya']],['Deskripsi'],['Jumlah (Rp)','num'],['Metode',['Tunai','Transfer Bank','E-Wallet','Kartu Debit','Kartu Kredit','Tabungan']],['Catatan','area'],['Link Gambar','img']]},
 'Rencana Liburan':{lbl:'rencana liburan',ttl:'Tujuan / Trip',amt:'Estimasi (Rp)',meta:r=>[r['Kategori Biaya'],r['Tgl Mulai'],r['Status Bayar']].filter(Boolean).join(' / '),
  f:[['Tujuan / Trip'],['Tgl Mulai','date'],['Tgl Selesai','date'],['Kategori Biaya',['Transport','Akomodasi','Makan','Tiket / Aktivitas','Oleh-oleh','Lain-lain']],['Rincian','area'],['Estimasi (Rp)','num'],['Aktual (Rp)','num'],['Status Bayar',['Belum Bayar','DP','Lunas']],['Catatan','area'],['Link Gambar','img']]},
 'Rencana Program':{lbl:'rencana program',ttl:'Nama Program',amt:'Anggaran (Rp)',meta:r=>[r.Status,r['Progress (%)']!==''?Math.round(r['Progress (%)']*100)+'%':'',r['Target Selesai']].filter(Boolean).join(' / '),
@@ -102,19 +103,19 @@ function render(){
 function summary(m){
  const T=data.Transaksi.rows,sum=(sh,k,f)=>data[sh].rows.reduce((a,r)=>!f||f(r)?a+(+r[k]||0):a,0),cnt=(sh,f)=>data[sh].rows.filter(f).length;
  const tp=(t,f)=>T.reduce((a,r)=>r.Tipe===t&&(!f||f(r))?a+(+r['Jumlah (Rp)']||0):a,0),mo=r=>String(r.Tanggal).startsWith(ym);
- const pm=tp('Pemasukan',mo),pg=tp('Pengeluaran',mo),tb=tp('Tabungan',mo),tbAll=tp('Tabungan'),kas=tp('Pemasukan')-tp('Pengeluaran')-tbAll,sisa=pm-pg-tb;
+ const pm=tp('Pemasukan',mo),pg=tp('Pengeluaran',mo),pgT=tp('Pengeluaran',r=>mo(r)&&r.Metode==='Tabungan'),pgTA=tp('Pengeluaran',r=>r.Metode==='Tabungan'),tb=tp('Tabungan',mo),tbAll=tp('Tabungan'),kas=tp('Pemasukan')-(tp('Pengeluaran')-pgTA)-tbAll,sisa=pm-(pg-pgT)-tb;
  const Lb='Rencana Liburan',Pr='Rencana Program',Pb='Rencana Pembelian',nl=r=>r['Status Bayar']!=='Lunas',ns=r=>r.Status!=='Selesai',nbt=r=>r.Status!=='Batal';
  const le=sum(Lb,'Estimasi (Rp)'),la=sum(Lb,'Aktual (Rp)'),pa=sum(Pr,'Anggaran (Rp)'),pr=sum(Pr,'Realisasi (Rp)');
  const lsisa=Math.max(0,sum(Lb,'Estimasi (Rp)',nl)-sum(Lb,'Aktual (Rp)',nl)),psisa=Math.max(0,sum(Pr,'Anggaran (Rp)',ns)-sum(Pr,'Realisasi (Rp)',ns));
- const stat=(ic,l,v,c)=>`<div class="stat"><span>${ic} ${l}</span><b class="${c||''}">${v}</b></div>`,ln=(l,v,c)=>`<div class="ln"><span>${l}</span><b class="${c||''}">${v}</b></div>`;
+ const stat=(ic,l,v,c,s)=>`<div class="stat"><span>${ic} ${l}</span><b class="${c||''}">${v}</b>${s?`<small>${s}</small>`:''}</div>`,ln=(l,v,c)=>`<div class="ln"><span>${l}</span><b class="${c||''}">${v}</b></div>`;
  const pct=(a,b)=>b>0?Math.round(a/b*100):0,bar=(p,l)=>`<div class="pbw"><div class="pb"><i style="width:${Math.min(100,p)}%"></i></div><small>${l} ${p}%</small></div>`;
  const card=(t,rs,x)=>`<section class="pc"><h3>${t}</h3>${rs.join('')}${x||''}</section>`;
  const rec=T.slice().sort((a,b)=>String(b.Tanggal).localeCompare(String(a.Tanggal))||String(b.ID).localeCompare(String(a.ID))).slice(0,5);
  const R=reminders(),ok='Notification' in window&&Notification.permission==='granted';
  m.innerHTML=`<div class="dh"><h2>🏠 Dashboard</h2><input type="month" value="${ym}" onchange="ym=this.value||ym;render()" style="width:auto;margin:0;padding:6px 10px;font-size:14px"></div>`+
- `<div class="stats">${stat('💰','Pemasukan',rp(pm),'in')}${stat('💸','Pengeluaran',rp(pg),'out')}${stat('🏦','Tabungan',rp(tb))}${stat('💵','Sisa bulan ini',rp(sisa),sisa<0?'out':'')}</div>`+
+ `<div class="stats">${stat('💰','Pemasukan',rp(pm),'in')}${stat('💸','Pengeluaran',rp(pg),'out',pgT?'termasuk '+rp(pgT)+' dari tabungan':'')}${stat('🏦','Tabungan',rp(tb))}${stat('💵','Sisa bulan ini',rp(sisa),sisa<0?'out':'')}</div>`+
  `<section class="pc"><h3>📊 Transaksi Terbaru</h3>`+(rec.length?rec.map(r=>{const p=r.Tipe==='Pemasukan',o=r.Tipe==='Pengeluaran';return `<div class="ln"><span><b style="color:var(--ink)">${esc(r.Deskripsi)}</b><small style="display:block">${esc(r.Tanggal)} / ${esc(r.Kategori)}</small></span><b class="${p?'in':o?'out':''}">${p?'+':o?'-':''}${rp(r['Jumlah (Rp)'])}</b></div>`}).join(''):'<p class="mut" style="margin:8px 12px">Belum ada transaksi.</p>')+`</section>`+
- `<h2>Semua waktu</h2><div class="stats">${stat('🏦','Tabungan terkumpul',rp(tbAll))}${stat('💼','Saldo kas',rp(kas),kas<0?'out':'')}</div>`+
+ `<h2>Semua waktu</h2><div class="stats">${stat('🏦','Saldo tabungan',rp(tbAll-pgTA),'','Disetor '+rp(tbAll)+', terpakai '+rp(pgTA))}${stat('💼','Saldo kas',rp(kas),kas<0?'out':'')}</div><div class="qa"><button class="add" onclick="edit('Transaksi',0,{Tipe:'Pengeluaran',Metode:'Tabungan',Kategori:'Lainnya'})">➖ Pakai tabungan</button><button class="add" onclick="edit('Transaksi',0,{Tipe:'Tabungan',Kategori:'Tabungan'})">➕ Setor tabungan</button></div>`+
  `<div class="cards">`+
  card('✈️ Rencana Liburan',[ln('Total Estimasi Biaya',rp(le)),ln('Total Biaya Aktual',rp(la)),ln('Sisa belum lunas',rp(lsisa),lsisa?'out':''),ln('Item belum lunas',cnt(Lb,nl))],bar(pct(la,le),'Terbayar'))+
  card('🎯 Rencana Program',[ln('Total Anggaran',rp(pa)),ln('Total Realisasi',rp(pr)),ln('Sisa Anggaran',rp(pa-pr)),ln('Sisa belum terealisasi',rp(psisa),psisa?'out':''),ln('Program belum selesai',cnt(Pr,ns))],bar(pct(pr,pa),'Terealisasi'))+
@@ -124,9 +125,9 @@ function summary(m){
 }
 function thumb(u){const m=/\/d\/([^/]+)/.exec(u||'');return m?`<img src="https://drive.google.com/thumbnail?id=${m[1]}&sz=w500" alt="Gambar">`:(u?`<a href="${esc(u)}" target="_blank" rel="noopener">Buka gambar</a>`:'')}
 
-function edit(sh,id){
+function edit(sh,id,pre){
  window.rid=Date.now().toString(36)+Math.random().toString(36).slice(2);
- const c=D[sh],r=id?data[sh].rows.find(x=>x.ID===id):{};
+ const c=D[sh],r=id?data[sh].rows.find(x=>x.ID===id):(pre||{});
  const fl=c.f.map(([k,t])=>{let v=r[k]??'';if(t==='pct'&&v!=='')v=+(v*100).toFixed(2);if(!id&&k==='Tanggal')v=iso(new Date());const n=esc(k),vv=esc(v);let i;
   if(Array.isArray(t))i=`<select name="${n}"><option></option>${t.map(o=>`<option${o===v?' selected':''}>${o}</option>`).join('')}</select>`;
   else if(t==='area')i=`<textarea name="${n}" rows="2">${vv}</textarea>`;
@@ -139,6 +140,7 @@ function edit(sh,id){
 function closeSheet(){$('#sheet').hidden=true}
 async function save(e,sh,id){e.preventDefault();const f=e.target,row={};if(id)row.ID=id;
  D[sh].f.forEach(([k,t])=>{let v=f.elements[k].value.trim();if(t==='num'||t==='pct'){v=v===''?null:Number(v);if(t==='pct'&&v!==null)v/=100}row[k]=v});
+ if(sh==='Transaksi'&&row.Tipe==='Pengeluaran'&&row.Metode==='Tabungan'){const s=tabSaldo(id);if((row['Jumlah (Rp)']||0)>s){$('#err').textContent='Melebihi saldo tabungan ('+rp(s)+')';return false}}
  busy(1);try{const j=await api({action:'save',sheet:sh,row,rid:window.rid}),rows=data[sh].rows,k=rows.findIndex(x=>x.ID===j.id);if(k<0){rows.push(j.row);logNew(sh,j.row);markKnown(sh,j.id)}else rows[k]=j.row;localStorage.cache=JSON.stringify(data);closeSheet();render();fire();toast('Tersimpan')}catch(x){$('#err').textContent=x.message;if(x.soft)load()}busy(0);return false}
 async function del(sh,id){if(!confirm('Hapus data ini?'))return;busy(1);try{await api({action:'delete',sheet:sh,id});data[sh].rows=data[sh].rows.filter(x=>x.ID!==id);localStorage.cache=JSON.stringify(data);closeSheet();render();toast('Terhapus')}catch(x){$('#err').textContent=x.message}busy(0)}
 async function up(inp){const file=inp.files[0];if(!file)return;const h=inp.nextElementSibling;busy(1);
@@ -162,6 +164,7 @@ function reminders(){
   add('p'+r.ID,r['Nama Program'],'Target selesai '+wk(dd(r['Target Selesai']))+', sisa anggaran '+rp(Math.max(0,n(r['Anggaran (Rp)'])-n(r['Realisasi (Rp)']))),dd(r['Target Selesai']),r['Target Selesai'])});
  if(now.getHours()>=JAM_CATAT&&!data.Transaksi.rows.some(r=>r.Tanggal===today))o.push({id:'h',t:'Catat transaksi hari ini',b:'Belum ada transaksi tercatat hari ini.',d:null,due:today,bk:'h',lvl:'Info',tag:'Pengingat'});
  return o}
+const tabSaldo=ex=>data.Transaksi.rows.reduce((a,r)=>r.ID===ex?a:r.Tipe==='Tabungan'?a+(+r['Jumlah (Rp)']||0):r.Tipe==='Pengeluaran'&&r.Metode==='Tabungan'?a-(+r['Jumlah (Rp)']||0):a,0);
 const LS=(k,d)=>{try{return JSON.parse(localStorage[k]||d)}catch(e){return JSON.parse(d)}};
 const NEW={'Transaksi':['Transaksi Baru',r=>`${r.Tipe} - ${r.Deskripsi} ${rp(r['Jumlah (Rp)'])}`],'Rencana Liburan':['Rencana Liburan Baru',r=>`${r['Tujuan / Trip']} - ${rp(r['Estimasi (Rp)'])}`],'Rencana Program':['Rencana Program Baru',r=>`${r['Nama Program']} - ${rp(r['Anggaran (Rp)'])}`],'Rencana Pembelian':['Rencana Pembelian Baru',r=>`${r['Nama Barang']} - ${rp(r['Harga (Rp)'])}`]};
 function logNew(sh,r){const [t,f]=NEW[sh],L=LS('log','[]'),b=f(r);L.unshift({t,b,ts:Date.now(),u:1});localStorage.log=JSON.stringify(L.slice(0,30));notify(t,b,'new'+sh+r.ID)}
