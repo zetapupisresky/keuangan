@@ -11,7 +11,7 @@ button,input,select,textarea{font:inherit;color:inherit}button{cursor:pointer}
 header{position:sticky;top:0;z-index:5;background:var(--ac);color:#fff;display:flex;align-items:center;gap:4px;padding:calc(10px + env(safe-area-inset-top)) 12px 10px}
 header h1{flex:1;margin:0;font-size:18px}
 .ib{background:none;border:0;color:#fff;padding:6px 8px;border-radius:8px}
-main{max-width:640px;margin:0 auto;padding:14px}
+main{max-width:720px;margin:0 auto;padding:14px}
 h2{font-size:15px;margin:18px 0 8px}
 .mut{color:var(--mut)}.in{color:var(--in)}.out{color:var(--out)}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -37,6 +37,18 @@ input,select,textarea{display:block;width:100%;padding:10px;margin-top:4px;borde
 #sheet form{max-width:560px;margin:0 auto}.pv img{max-width:100%;border-radius:8px;margin-top:6px}
 #bar{position:fixed;top:0;left:0;height:3px;width:0;background:#7FE0D6;z-index:30;transition:width .4s}
 .sec{border:1px solid var(--ln);border-radius:10px;overflow:hidden}.ln{display:flex;justify-content:space-between;gap:12px;padding:9px 12px;background:#fff}.ln+.ln{border-top:1px solid var(--ln)}.ln span{color:var(--mut)}.ln b{white-space:nowrap}
+#bell{position:relative;font-size:18px}
+#badge{position:absolute;top:-2px;right:0;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:#E5484D;color:#fff;font-size:11px;line-height:18px;font-weight:700}
+#panel{position:fixed;top:calc(58px + env(safe-area-inset-top));right:10px;width:min(92vw,380px);max-height:72vh;overflow:auto;background:#fff;border-radius:16px;box-shadow:0 12px 32px rgba(20,35,46,.2);z-index:8}
+.ph{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;font-size:17px}.ph .ib{color:var(--ink)}
+.ni{padding:12px 18px;border-top:1px solid var(--ln)}.ni b{font-size:16px}.ni p{margin:4px 0;color:var(--mut)}.ni small{color:var(--mut)}
+.ni em{font-style:normal;font-weight:700}em.High{color:#D9381E}em.Medium{color:#E8890C}em.Info{color:var(--mut)}
+.dh{display:flex;justify-content:space-between;align-items:center;margin-top:4px}.dh h2{margin:0;font-size:22px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:12px 0}
+.stat{background:#fff;border:1px solid var(--ln);border-radius:16px;padding:14px 16px}.stat span{color:var(--mut);font-size:13px}.stat b{display:block;font-size:21px;margin-top:6px}
+.pc{background:#fff;border:1px solid var(--ln);border-radius:16px;padding:6px 4px 12px;margin:12px 0}.pc h3{margin:10px 12px 4px;font-size:16px}.pc .ln{padding:8px 12px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}.cards .pc{margin:0}
+.pbw{padding:8px 12px 0}.pb{height:8px;background:#E3EAEE;border-radius:4px;overflow:hidden}.pb i{display:block;height:100%;background:var(--ac)}.pbw small{color:var(--mut)}
 #toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 14px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20;max-width:90%}
 #toast.s{opacity:1}
 </style></head><body>
@@ -46,10 +58,10 @@ input,select,textarea{display:block;width:100%;padding:10px;margin-top:4px;borde
 <label id="code" hidden>Kode daftar (kosongkan untuk akun pertama)<input name="c"></label>
 <p id="lerr" class="out"></p><button class="pri">Lanjut</button></form>
 <button class="link" id="sw" onclick="setMode(mode==='login'?'register':'login')">Belum punya akun? Daftar</button></div>
-<div id="app" hidden><header><h1>Keuangan</h1><button class="ib" onclick="load()">Muat ulang</button><button class="ib" onclick="logout()">Keluar</button></header>
+<div id="app" hidden><header><h1>Keuangan</h1><button class="ib" id="bell" onclick="togglePanel()" aria-label="Notifikasi">🔔<span id="badge" hidden></span></button><button class="ib" onclick="load()">Muat ulang</button><button class="ib" onclick="logout()">Keluar</button></header>
 <main id="main"></main>
 <nav><button data-t="Ringkasan">Ringkasan</button><button data-t="Transaksi">Transaksi</button><button data-t="Rencana Liburan">Liburan</button><button data-t="Rencana Program">Program</button><button data-t="Rencana Pembelian">Pembelian</button></nav></div>
-<div id="sheet" hidden></div><div id="bar"></div><div id="toast"></div>
+<div id="sheet" hidden></div><div id="panel" hidden></div><div id="bar"></div><div id="toast"></div>
 <script>
 const API='https://script.google.com/macros/s/AKfycbzeg8aXtyAfUGjpt_6Ctt9rY5TnoomuACKi90lSZW6LmEoq47toreoh5p50suoCoW6S/exec';
 const JAM_CATAT=20, HARI_DEPAN=7, HARI_CICILAN=3;
@@ -73,11 +85,12 @@ let nb=0;function busy(b){nb=Math.max(0,nb+(b?1:-1));$('#bar').style.width=nb?'7
 function setMode(m){mode=m;$('#code').hidden=m!=='register';$('#lt').textContent=m==='login'?'Masuk':'Buat akun';$('#sw').textContent=m==='login'?'Belum punya akun? Daftar':'Sudah punya akun? Masuk'}
 async function auth(e){e.preventDefault();const f=e.target;busy(1);try{const j=await api({action:mode,username:f.u.value,password:f.p.value,code:f.c.value});tok=j.token;localStorage.tok=tok;start()}catch(x){$('#lerr').textContent=x.message}busy(0);return false}
 function start(){$('#login').hidden=true;$('#app').hidden=false;render();load();clearInterval(timer);timer=setInterval(fire,30*60e3)}
-async function logout(){try{await api({action:'logout'})}catch(e){}localStorage.removeItem('tok');localStorage.removeItem('cache');tok=data=null;$('#app').hidden=true;$('#login').hidden=false}
-async function load(){busy(1);try{data=(await api({action:'list'})).data;localStorage.cache=JSON.stringify(data)}catch(x){if(/Sesi/.test(x.message)){busy(0);return logout()}toast('Offline: menampilkan data terakhir')}busy(0);render();fire()}
+async function logout(){try{await api({action:'logout'})}catch(e){}localStorage.removeItem('tok');['cache','known','log'].forEach(k=>localStorage.removeItem(k));tok=data=null;$('#app').hidden=true;$('#login').hidden=false}
+async function load(){busy(1);try{data=(await api({action:'list'})).data;localStorage.cache=JSON.stringify(data)}catch(x){if(/Sesi/.test(x.message)){busy(0);return logout()}toast('Offline: menampilkan data terakhir')}busy(0);if(data)scanNew();render();fire()}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;render()});
 
 function render(){
+ badge();
  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));
  const m=$('#main');if(!data){m.innerHTML='<p class="mut">Memuat data...</p>';return}
  if(tab==='Ringkasan')return summary(m);
@@ -89,18 +102,24 @@ function render(){
 function summary(m){
  const T=data.Transaksi.rows,sum=(sh,k,f)=>data[sh].rows.reduce((a,r)=>!f||f(r)?a+(+r[k]||0):a,0),cnt=(sh,f)=>data[sh].rows.filter(f).length;
  const tp=(t,f)=>T.reduce((a,r)=>r.Tipe===t&&(!f||f(r))?a+(+r['Jumlah (Rp)']||0):a,0),mo=r=>String(r.Tanggal).startsWith(ym);
- const pm=tp('Pemasukan',mo),pg=tp('Pengeluaran',mo),tb=tp('Tabungan',mo),tbAll=tp('Tabungan'),kas=tp('Pemasukan')-tp('Pengeluaran')-tbAll;
+ const pm=tp('Pemasukan',mo),pg=tp('Pengeluaran',mo),tb=tp('Tabungan',mo),tbAll=tp('Tabungan'),kas=tp('Pemasukan')-tp('Pengeluaran')-tbAll,sisa=pm-pg-tb;
  const Lb='Rencana Liburan',Pr='Rencana Program',Pb='Rencana Pembelian',nl=r=>r['Status Bayar']!=='Lunas',ns=r=>r.Status!=='Selesai',nbt=r=>r.Status!=='Batal';
  const le=sum(Lb,'Estimasi (Rp)'),la=sum(Lb,'Aktual (Rp)'),pa=sum(Pr,'Anggaran (Rp)'),pr=sum(Pr,'Realisasi (Rp)');
  const lsisa=Math.max(0,sum(Lb,'Estimasi (Rp)',nl)-sum(Lb,'Aktual (Rp)',nl)),psisa=Math.max(0,sum(Pr,'Anggaran (Rp)',ns)-sum(Pr,'Realisasi (Rp)',ns));
- const ln=(l,v,c)=>`<div class="ln"><span>${l}</span><b class="${c||''}">${v}</b></div>`,sec=(t,rs)=>`<h2>${t}</h2><div class="sec">${rs.join('')}</div>`;
+ const stat=(ic,l,v,c)=>`<div class="stat"><span>${ic} ${l}</span><b class="${c||''}">${v}</b></div>`,ln=(l,v,c)=>`<div class="ln"><span>${l}</span><b class="${c||''}">${v}</b></div>`;
+ const pct=(a,b)=>b>0?Math.round(a/b*100):0,bar=(p,l)=>`<div class="pbw"><div class="pb"><i style="width:${Math.min(100,p)}%"></i></div><small>${l} ${p}%</small></div>`;
+ const card=(t,rs,x)=>`<section class="pc"><h3>${t}</h3>${rs.join('')}${x||''}</section>`;
+ const rec=T.slice().sort((a,b)=>String(b.Tanggal).localeCompare(String(a.Tanggal))||String(b.ID).localeCompare(String(a.ID))).slice(0,5);
  const R=reminders(),ok='Notification' in window&&Notification.permission==='granted';
- m.innerHTML=`<h2>Transaksi bulan <input type="month" value="${ym}" onchange="ym=this.value||ym;render()" style="width:auto;display:inline-block;margin:0 0 0 6px;padding:4px 8px;font-size:14px"></h2><div class="sec">${[ln('Total Pemasukan',rp(pm),'in'),ln('Total Pengeluaran',rp(pg),'out'),ln('Total Tabungan (setoran)',rp(tb)),ln('Sisa bulan ini',rp(pm-pg-tb),pm-pg-tb<0?'out':'')].join('')}</div>`+
- sec('Transaksi semua waktu',[ln('Total Tabungan terkumpul',rp(tbAll)),ln('Saldo kas',rp(kas),kas<0?'out':'')])+
- sec('Rencana Liburan',[ln('Total Estimasi Biaya',rp(le)),ln('Total Biaya Aktual',rp(la)),ln('Sisa belum lunas',rp(lsisa),lsisa?'out':''),ln('Item belum lunas',cnt(Lb,nl))])+
- sec('Rencana Program',[ln('Total Anggaran',rp(pa)),ln('Total Realisasi',rp(pr)),ln('Sisa Anggaran',rp(pa-pr)),ln('Sisa belum terealisasi',rp(psisa),psisa?'out':''),ln('Program belum selesai',cnt(Pr,ns))])+
- sec('Rencana Pembelian (kredit)',[ln('Total Harga Barang (selain Batal)',rp(sum(Pb,'Harga (Rp)',nbt))),ln('Total Cicilan per Bulan (Cicilan Berjalan)',rp(sum(Pb,'Cicilan per Bulan (Rp)',r=>r.Status==='Cicilan Berjalan'))),ln('Total Bunga seluruh rencana (selain Batal)',rp(sum(Pb,'Total Bunga (Rp)',nbt)))])+
- '<h2>Pengingat</h2>'+(R.length?R.map(x=>`<div class="card"><span><b>${esc(x.t)}</b><small>${esc(x.b)}</small></span></div>`).join(''):'<p class="mut">Tidak ada pengingat saat ini.</p>')+
+ m.innerHTML=`<div class="dh"><h2>🏠 Dashboard</h2><input type="month" value="${ym}" onchange="ym=this.value||ym;render()" style="width:auto;margin:0;padding:6px 10px;font-size:14px"></div>`+
+ `<div class="stats">${stat('💰','Pemasukan',rp(pm),'in')}${stat('💸','Pengeluaran',rp(pg),'out')}${stat('🏦','Tabungan',rp(tb))}${stat('💵','Sisa bulan ini',rp(sisa),sisa<0?'out':'')}</div>`+
+ `<section class="pc"><h3>📊 Transaksi Terbaru</h3>`+(rec.length?rec.map(r=>{const p=r.Tipe==='Pemasukan',o=r.Tipe==='Pengeluaran';return `<div class="ln"><span><b style="color:var(--ink)">${esc(r.Deskripsi)}</b><small style="display:block">${esc(r.Tanggal)} / ${esc(r.Kategori)}</small></span><b class="${p?'in':o?'out':''}">${p?'+':o?'-':''}${rp(r['Jumlah (Rp)'])}</b></div>`}).join(''):'<p class="mut" style="margin:8px 12px">Belum ada transaksi.</p>')+`</section>`+
+ `<h2>Semua waktu</h2><div class="stats">${stat('🏦','Tabungan terkumpul',rp(tbAll))}${stat('💼','Saldo kas',rp(kas),kas<0?'out':'')}</div>`+
+ `<div class="cards">`+
+ card('✈️ Rencana Liburan',[ln('Total Estimasi Biaya',rp(le)),ln('Total Biaya Aktual',rp(la)),ln('Sisa belum lunas',rp(lsisa),lsisa?'out':''),ln('Item belum lunas',cnt(Lb,nl))],bar(pct(la,le),'Terbayar'))+
+ card('🎯 Rencana Program',[ln('Total Anggaran',rp(pa)),ln('Total Realisasi',rp(pr)),ln('Sisa Anggaran',rp(pa-pr)),ln('Sisa belum terealisasi',rp(psisa),psisa?'out':''),ln('Program belum selesai',cnt(Pr,ns))],bar(pct(pr,pa),'Terealisasi'))+
+ card('🛒 Rencana Pembelian (kredit)',[ln('Total Harga Barang (selain Batal)',rp(sum(Pb,'Harga (Rp)',nbt))),ln('Total Cicilan per Bulan (Cicilan Berjalan)',rp(sum(Pb,'Cicilan per Bulan (Rp)',r=>r.Status==='Cicilan Berjalan'))),ln('Total Bunga seluruh rencana (selain Batal)',rp(sum(Pb,'Total Bunga (Rp)',nbt)))])+`</div>`+
+ '<h2>⏰ Pengingat</h2>'+(R.length?R.map(x=>`<div class="card"><span><b>${esc(x.t)}</b><small>${esc(x.b)}</small></span></div>`).join(''):'<p class="mut">Tidak ada pengingat saat ini.</p>')+
  (ok?'<p class="mut">Notifikasi aktif. Pengingat muncul saat aplikasi dibuka.</p>':'<button class="add" onclick="askNotif()">Aktifkan notifikasi</button>');
 }
 function thumb(u){const m=/\/d\/([^/]+)/.exec(u||'');return m?`<img src="https://drive.google.com/thumbnail?id=${m[1]}&sz=w500" alt="Gambar">`:(u?`<a href="${esc(u)}" target="_blank" rel="noopener">Buka gambar</a>`:'')}
@@ -120,32 +139,54 @@ function edit(sh,id){
 function closeSheet(){$('#sheet').hidden=true}
 async function save(e,sh,id){e.preventDefault();const f=e.target,row={};if(id)row.ID=id;
  D[sh].f.forEach(([k,t])=>{let v=f.elements[k].value.trim();if(t==='num'||t==='pct'){v=v===''?null:Number(v);if(t==='pct'&&v!==null)v/=100}row[k]=v});
- busy(1);try{const j=await api({action:'save',sheet:sh,row,rid:window.rid}),rows=data[sh].rows,k=rows.findIndex(x=>x.ID===j.id);k<0?rows.push(j.row):rows[k]=j.row;localStorage.cache=JSON.stringify(data);closeSheet();render();fire();toast('Tersimpan')}catch(x){$('#err').textContent=x.message;if(x.soft)load()}busy(0);return false}
+ busy(1);try{const j=await api({action:'save',sheet:sh,row,rid:window.rid}),rows=data[sh].rows,k=rows.findIndex(x=>x.ID===j.id);if(k<0){rows.push(j.row);logNew(sh,j.row);markKnown(sh,j.id)}else rows[k]=j.row;localStorage.cache=JSON.stringify(data);closeSheet();render();fire();toast('Tersimpan')}catch(x){$('#err').textContent=x.message;if(x.soft)load()}busy(0);return false}
 async function del(sh,id){if(!confirm('Hapus data ini?'))return;busy(1);try{await api({action:'delete',sheet:sh,id});data[sh].rows=data[sh].rows.filter(x=>x.ID!==id);localStorage.cache=JSON.stringify(data);closeSheet();render();toast('Terhapus')}catch(x){$('#err').textContent=x.message}busy(0)}
 async function up(inp){const file=inp.files[0];if(!file)return;const h=inp.nextElementSibling;busy(1);
  try{const im=await createImageBitmap(file),s=Math.min(1,1200/Math.max(im.width,im.height)),cv=document.createElement('canvas');cv.width=im.width*s;cv.height=im.height*s;cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);
   const j=await api({action:'upload',data:cv.toDataURL('image/jpeg',.72).split(',')[1]});h.value=j.url;h.nextElementSibling.innerHTML=thumb(j.url)}catch(x){$('#err').textContent=x.message}busy(0)}
 
 function reminders(){
- const o=[],now=new Date(),today=iso(now),T0=new Date(today+'T00:00:00'),dd=s=>s?Math.round((new Date(s+'T00:00:00')-T0)/864e5):null,seen={};
+ const o=[],now=new Date(),today=iso(now),T0=new Date(today+'T00:00:00'),dd=s=>s?Math.round((new Date(s+'T00:00:00')-T0)/864e5):null;
+ const wk=d=>d<=0?'HARI INI':d===1?'BESOK (H-1)':d+' hari lagi',n=v=>+v||0;
+ const add=(id,t,b,d,due)=>{if(d!==null&&d>=0&&d<=7)o.push({id,t,b,d,due,bk:d<=0?0:d<=1?1:d<=3?3:7,lvl:d<=1?'High':'Medium',tag:'Jatuh Tempo'})};
  data['Rencana Pembelian'].rows.forEach(r=>{
   const day=+r['Tgl Jatuh Tempo Cicilan (1-31)'];if(r.Status!=='Cicilan Berjalan'||!day)return;
   const y=now.getFullYear(),mo=now.getMonth();let due=new Date(y,mo,Math.min(day,new Date(y,mo+1,0).getDate()));
   if(due<T0)due=new Date(y,mo+1,Math.min(day,new Date(y,mo+2,0).getDate()));
-  const d=Math.round((due-T0)/864e5);
-  if(d<=HARI_CICILAN)o.push({id:'c'+r.ID,t:'Cicilan '+r['Nama Barang'],b:rp(r['Cicilan per Bulan (Rp)'])+(d?` jatuh tempo ${d} hari lagi`:' jatuh tempo hari ini')})});
- data['Rencana Liburan'].rows.forEach(r=>{const d=dd(r['Tgl Mulai']),n=r['Tujuan / Trip'];
-  if(d!==null&&d>=0&&d<=HARI_DEPAN&&!seen[n]){seen[n]=1;o.push({id:'l'+n,t:n,b:d?`Liburan mulai ${d} hari lagi`:'Liburan mulai hari ini'})}});
- data['Rencana Program'].rows.forEach(r=>{const d=dd(r['Target Selesai']);
-  if(r.Status!=='Selesai'&&d!==null&&d>=0&&d<=HARI_DEPAN)o.push({id:'p'+r.ID,t:r['Nama Program'],b:d?`Target selesai ${d} hari lagi`:'Target selesai hari ini'})});
- if(now.getHours()>=JAM_CATAT&&!data.Transaksi.rows.some(r=>r.Tanggal===today))o.push({id:'h',t:'Catat transaksi hari ini',b:'Belum ada transaksi tercatat hari ini.'});
+  const d=Math.round((due-T0)/864e5);add('c'+r.ID,'Cicilan '+r['Nama Barang'],rp(r['Cicilan per Bulan (Rp)'])+' jatuh tempo '+wk(d),d,iso(due))});
+ const tr={};
+ data['Rencana Liburan'].rows.forEach(r=>{if(r['Status Bayar']==='Lunas')return;const nm=r['Tujuan / Trip'],d=dd(r['Tgl Mulai']);if(d===null)return;
+  const x=tr[nm]=tr[nm]||{d,s:0,due:r['Tgl Mulai']};x.s+=Math.max(0,n(r['Estimasi (Rp)'])-n(r['Aktual (Rp)']))});
+ for(const nm in tr){const x=tr[nm];if(x.s>0)add('l'+nm,'Liburan '+nm,'Sisa belum lunas '+rp(x.s)+', berangkat '+wk(x.d),x.d,x.due)}
+ data['Rencana Program'].rows.forEach(r=>{if(r.Status==='Selesai')return;
+  add('p'+r.ID,r['Nama Program'],'Target selesai '+wk(dd(r['Target Selesai']))+', sisa anggaran '+rp(Math.max(0,n(r['Anggaran (Rp)'])-n(r['Realisasi (Rp)']))),dd(r['Target Selesai']),r['Target Selesai'])});
+ if(now.getHours()>=JAM_CATAT&&!data.Transaksi.rows.some(r=>r.Tanggal===today))o.push({id:'h',t:'Catat transaksi hari ini',b:'Belum ada transaksi tercatat hari ini.',d:null,due:today,bk:'h',lvl:'Info',tag:'Pengingat'});
  return o}
+const LS=(k,d)=>{try{return JSON.parse(localStorage[k]||d)}catch(e){return JSON.parse(d)}};
+const NEW={'Transaksi':['Transaksi Baru',r=>`${r.Tipe} - ${r.Deskripsi} ${rp(r['Jumlah (Rp)'])}`],'Rencana Liburan':['Rencana Liburan Baru',r=>`${r['Tujuan / Trip']} - ${rp(r['Estimasi (Rp)'])}`],'Rencana Program':['Rencana Program Baru',r=>`${r['Nama Program']} - ${rp(r['Anggaran (Rp)'])}`],'Rencana Pembelian':['Rencana Pembelian Baru',r=>`${r['Nama Barang']} - ${rp(r['Harga (Rp)'])}`]};
+function logNew(sh,r){const [t,f]=NEW[sh],L=LS('log','[]'),b=f(r);L.unshift({t,b,ts:Date.now(),u:1});localStorage.log=JSON.stringify(L.slice(0,30));notify(t,b,'new'+sh+r.ID)}
+function markKnown(sh,id){const K=LS('known','{}');(K[sh]=K[sh]||[]).push(id);localStorage.known=JSON.stringify(K)}
+function scanNew(){const K=localStorage.known?LS('known','{}'):null,k={};
+ for(const sh in D){k[sh]=data[sh].rows.map(r=>r.ID);if(K)data[sh].rows.forEach(r=>{if(!(K[sh]||[]).includes(r.ID))logNew(sh,r)})}
+ localStorage.known=JSON.stringify(k)}
+function ago(ts){const m=Math.round((Date.now()-ts)/6e4);return m<1?'baru saja':m<60?m+' menit lalu':m<1440?Math.round(m/60)+' jam lalu':Math.round(m/1440)+' hari lalu'}
+function badge(){const b=$('#badge');if(!b||!data)return;const n=reminders().length+LS('log','[]').filter(x=>x.u).length;b.textContent=n;b.hidden=!n}
+function togglePanel(){const p=$('#panel');p.hidden=!p.hidden;if(p.hidden)return;
+ const R=reminders(),L=LS('log','[]'),it=(t,b,m)=>`<div class="ni"><b>${esc(t)}</b><p>${esc(b)}</p><small>${m}</small></div>`;
+ p.innerHTML=`<div class="ph"><b>🔔 Notifikasi</b><button class="ib" onclick="togglePanel()" aria-label="Tutup">✕</button></div>`+
+  (R.length||L.length?R.map(x=>it(x.t,x.b,`${x.tag} · <em class="${x.lvl}">${x.lvl}</em>`)).join('')+L.map(x=>it(x.t,x.b,`Data Baru · <em class="Medium">Medium</em> · ${ago(x.ts)}`)).join('')+(L.length?'<button class="link" style="margin:8px 18px 14px" onclick="clearLog()">Hapus riwayat data baru</button>':''):'<p class="mut" style="padding:4px 18px 18px">Belum ada notifikasi.</p>');
+ localStorage.log=JSON.stringify(L.map(x=>({...x,u:0})));badge()}
+function clearLog(){localStorage.log='[]';$('#panel').hidden=true;togglePanel();badge()}
 async function notify(t,b,tag){if(!('Notification' in window)||Notification.permission!=='granted')return;const r=await navigator.serviceWorker.ready;r.showNotification(t,{body:b,tag,icon:'icon-192.png',badge:'icon-192.png'})}
-function fire(){if(!data)return;const today=iso(new Date());reminders().forEach(x=>{const k='n:'+today+':'+x.id;if(!localStorage[k]){localStorage[k]=1;notify(x.t,x.b,x.id)}});
- Object.keys(localStorage).forEach(k=>{if(k.startsWith('n:')&&!k.startsWith('n:'+today))localStorage.removeItem(k)})}
+function fire(){if(!data)return;const F=LS('fired','{}'),now=Date.now();let ch=0;
+ Object.keys(localStorage).forEach(k=>{if(k.startsWith('n:'))localStorage.removeItem(k)});
+ reminders().forEach(x=>{const k=x.id+'|'+(x.due||'')+'|'+x.bk;if(!F[k]){F[k]=now;ch=1;notify(x.t,x.b,k)}});
+ for(const k in F)if(now-F[k]>45*864e5){delete F[k];ch=1}
+ if(ch)localStorage.fired=JSON.stringify(F);badge()}
 async function askNotif(){if(!('Notification' in window))return toast('Browser tidak mendukung. Di iPhone, tambahkan ke Layar Utama dulu.');
  const p=await Notification.requestPermission();toast(p==='granted'?'Notifikasi aktif':'Izin notifikasi ditolak');if(p==='granted'){notify('Notifikasi aktif','Pengingat muncul saat aplikasi dibuka.','t');render()}}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)fire()});
+document.addEventListener('click',e=>{const p=$('#panel');if(!p.hidden&&!e.target.closest('#panel,#bell'))p.hidden=true});
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
 if(tok)start();
 </script></body></html>
