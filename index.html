@@ -35,6 +35,8 @@ input,select,textarea{display:block;width:100%;padding:10px;margin-top:4px;borde
 .link{background:none;border:0;color:var(--ac);margin-top:12px;padding:0}
 #sheet{position:fixed;inset:0;z-index:9;background:var(--bg);overflow:auto;padding:calc(14px + env(safe-area-inset-top)) 16px 40px}
 #sheet form{max-width:560px;margin:0 auto}.pv img{max-width:100%;border-radius:8px;margin-top:6px}
+#bar{position:fixed;top:0;left:0;height:3px;width:0;background:#7FE0D6;z-index:30;transition:width .4s}
+.sec{border:1px solid var(--ln);border-radius:10px;overflow:hidden}.ln{display:flex;justify-content:space-between;gap:12px;padding:9px 12px;background:#fff}.ln+.ln{border-top:1px solid var(--ln)}.ln span{color:var(--mut)}.ln b{white-space:nowrap}
 #toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 14px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20;max-width:90%}
 #toast.s{opacity:1}
 </style></head><body>
@@ -47,7 +49,7 @@ input,select,textarea{display:block;width:100%;padding:10px;margin-top:4px;borde
 <div id="app" hidden><header><h1>Keuangan</h1><button class="ib" onclick="load()">Muat ulang</button><button class="ib" onclick="logout()">Keluar</button></header>
 <main id="main"></main>
 <nav><button data-t="Ringkasan">Ringkasan</button><button data-t="Transaksi">Transaksi</button><button data-t="Rencana Liburan">Liburan</button><button data-t="Rencana Program">Program</button><button data-t="Rencana Pembelian">Pembelian</button></nav></div>
-<div id="sheet" hidden></div><div id="toast"></div>
+<div id="sheet" hidden></div><div id="bar"></div><div id="toast"></div>
 <script>
 const API='https://script.google.com/macros/s/AKfycbzeg8aXtyAfUGjpt_6Ctt9rY5TnoomuACKi90lSZW6LmEoq47toreoh5p50suoCoW6S/exec';
 const JAM_CATAT=20, HARI_DEPAN=7, HARI_CICILAN=3;
@@ -63,11 +65,11 @@ const D={
 'Rencana Pembelian':{lbl:'rencana pembelian',ttl:'Nama Barang',amt:'Harga (Rp)',meta:r=>[r.Status,r['Cicilan per Bulan (Rp)']?rp(r['Cicilan per Bulan (Rp)'])+'/bln':''].filter(Boolean).join(' / '),
  f:[['Nama Barang'],['Kategori'],['Harga (Rp)','num'],['Uang Muka / DP (Rp)','num'],['Bunga per Tahun (%)','pct'],['Jenis Bunga',['Efektif','Flat']],['Tenor (bulan)','num'],['Tgl Rencana Beli','date'],['Tgl Jatuh Tempo Cicilan (1-31)','num'],['Status',['Rencana','Menabung','Cicilan Berjalan','Lunas','Batal']],['Catatan','area'],['Link Gambar','img']]}
 };
-let tok=localStorage.tok, data=JSON.parse(localStorage.cache||'null'), tab='Ringkasan', mode='login', timer;
+let ym=iso(new Date()).slice(0,7), tok=localStorage.tok, data=JSON.parse(localStorage.cache||'null'), tab='Ringkasan', mode='login', timer;
 
-async function api(a){const r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({...a,token:tok})});const j=await r.json();if(!j.ok)throw new Error(j.error);return j}
+async function api(a){const r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({...a,token:tok})});const t=await r.text();let j;try{j=JSON.parse(t)}catch(e){const x=new Error('Server belum menjawab dengan benar. Data mungkin sudah tersimpan; daftar dimuat ulang otomatis.');x.soft=1;throw x}if(!j.ok)throw new Error(j.error);return j}
 function toast(t){const e=$('#toast');e.textContent=t;e.className='s';clearTimeout(e.t);e.t=setTimeout(()=>e.className='',2600)}
-function busy(b){document.body.style.cursor=b?'progress':''}
+let nb=0;function busy(b){nb=Math.max(0,nb+(b?1:-1));$('#bar').style.width=nb?'70%':'0';document.body.style.cursor=nb?'progress':''}
 function setMode(m){mode=m;$('#code').hidden=m!=='register';$('#lt').textContent=m==='login'?'Masuk':'Buat akun';$('#sw').textContent=m==='login'?'Belum punya akun? Daftar':'Sudah punya akun? Masuk'}
 async function auth(e){e.preventDefault();const f=e.target;busy(1);try{const j=await api({action:mode,username:f.u.value,password:f.p.value,code:f.c.value});tok=j.token;localStorage.tok=tok;start()}catch(x){$('#lerr').textContent=x.message}busy(0);return false}
 function start(){$('#login').hidden=true;$('#app').hidden=false;render();load();clearInterval(timer);timer=setInterval(fire,30*60e3)}
@@ -85,16 +87,26 @@ function render(){
   return `<button class="card" onclick="edit('${tab}','${esc(r.ID)}')"><span>${esc(r[c.ttl])}<small>${esc(c.meta(r))}</small></span><span style="display:flex;gap:10px;align-items:center">${im}<b class="a ${neg?'out':pos?'in':''}">${rp(r[c.amt])}</b></span></button>`}).join(''):'<p class="mut">Belum ada data. Tekan Tambah untuk mulai mencatat.</p>');
 }
 function summary(m){
- const ym=iso(new Date()).slice(0,7),t={Pemasukan:0,Pengeluaran:0,Tabungan:0};
- data.Transaksi.rows.forEach(r=>{if(String(r.Tanggal).startsWith(ym)&&r.Tipe in t)t[r.Tipe]+=+r['Jumlah (Rp)']||0});
- const sisa=t.Pemasukan-t.Pengeluaran-t.Tabungan,R=reminders(),ok='Notification' in window&&Notification.permission==='granted';
- m.innerHTML=`<h2>Bulan ini</h2><div class="grid">${[['Pemasukan',t.Pemasukan,'in'],['Pengeluaran',t.Pengeluaran,'out'],['Tabungan',t.Tabungan,''],['Sisa',sisa,sisa<0?'out':'']].map(x=>`<div class="k"><span>${x[0]}</span><b class="${x[2]}">${rp(x[1])}</b></div>`).join('')}</div><h2>Pengingat</h2>`+
- (R.length?R.map(x=>`<div class="card"><span><b>${esc(x.t)}</b><small>${esc(x.b)}</small></span></div>`).join(''):'<p class="mut">Tidak ada pengingat saat ini.</p>')+
+ const T=data.Transaksi.rows,sum=(sh,k,f)=>data[sh].rows.reduce((a,r)=>!f||f(r)?a+(+r[k]||0):a,0),cnt=(sh,f)=>data[sh].rows.filter(f).length;
+ const tp=(t,f)=>T.reduce((a,r)=>r.Tipe===t&&(!f||f(r))?a+(+r['Jumlah (Rp)']||0):a,0),mo=r=>String(r.Tanggal).startsWith(ym);
+ const pm=tp('Pemasukan',mo),pg=tp('Pengeluaran',mo),tb=tp('Tabungan',mo),tbAll=tp('Tabungan'),kas=tp('Pemasukan')-tp('Pengeluaran')-tbAll;
+ const Lb='Rencana Liburan',Pr='Rencana Program',Pb='Rencana Pembelian',nl=r=>r['Status Bayar']!=='Lunas',ns=r=>r.Status!=='Selesai',nbt=r=>r.Status!=='Batal';
+ const le=sum(Lb,'Estimasi (Rp)'),la=sum(Lb,'Aktual (Rp)'),pa=sum(Pr,'Anggaran (Rp)'),pr=sum(Pr,'Realisasi (Rp)');
+ const lsisa=Math.max(0,sum(Lb,'Estimasi (Rp)',nl)-sum(Lb,'Aktual (Rp)',nl)),psisa=Math.max(0,sum(Pr,'Anggaran (Rp)',ns)-sum(Pr,'Realisasi (Rp)',ns));
+ const ln=(l,v,c)=>`<div class="ln"><span>${l}</span><b class="${c||''}">${v}</b></div>`,sec=(t,rs)=>`<h2>${t}</h2><div class="sec">${rs.join('')}</div>`;
+ const R=reminders(),ok='Notification' in window&&Notification.permission==='granted';
+ m.innerHTML=`<h2>Transaksi bulan <input type="month" value="${ym}" onchange="ym=this.value||ym;render()" style="width:auto;display:inline-block;margin:0 0 0 6px;padding:4px 8px;font-size:14px"></h2><div class="sec">${[ln('Total Pemasukan',rp(pm),'in'),ln('Total Pengeluaran',rp(pg),'out'),ln('Total Tabungan (setoran)',rp(tb)),ln('Sisa bulan ini',rp(pm-pg-tb),pm-pg-tb<0?'out':'')].join('')}</div>`+
+ sec('Transaksi semua waktu',[ln('Total Tabungan terkumpul',rp(tbAll)),ln('Saldo kas',rp(kas),kas<0?'out':'')])+
+ sec('Rencana Liburan',[ln('Total Estimasi Biaya',rp(le)),ln('Total Biaya Aktual',rp(la)),ln('Sisa belum lunas',rp(lsisa),lsisa?'out':''),ln('Item belum lunas',cnt(Lb,nl))])+
+ sec('Rencana Program',[ln('Total Anggaran',rp(pa)),ln('Total Realisasi',rp(pr)),ln('Sisa Anggaran',rp(pa-pr)),ln('Sisa belum terealisasi',rp(psisa),psisa?'out':''),ln('Program belum selesai',cnt(Pr,ns))])+
+ sec('Rencana Pembelian (kredit)',[ln('Total Harga Barang (selain Batal)',rp(sum(Pb,'Harga (Rp)',nbt))),ln('Total Cicilan per Bulan (Cicilan Berjalan)',rp(sum(Pb,'Cicilan per Bulan (Rp)',r=>r.Status==='Cicilan Berjalan'))),ln('Total Bunga seluruh rencana (selain Batal)',rp(sum(Pb,'Total Bunga (Rp)',nbt)))])+
+ '<h2>Pengingat</h2>'+(R.length?R.map(x=>`<div class="card"><span><b>${esc(x.t)}</b><small>${esc(x.b)}</small></span></div>`).join(''):'<p class="mut">Tidak ada pengingat saat ini.</p>')+
  (ok?'<p class="mut">Notifikasi aktif. Pengingat muncul saat aplikasi dibuka.</p>':'<button class="add" onclick="askNotif()">Aktifkan notifikasi</button>');
 }
 function thumb(u){const m=/\/d\/([^/]+)/.exec(u||'');return m?`<img src="https://drive.google.com/thumbnail?id=${m[1]}&sz=w500" alt="Gambar">`:(u?`<a href="${esc(u)}" target="_blank" rel="noopener">Buka gambar</a>`:'')}
 
 function edit(sh,id){
+ window.rid=Date.now().toString(36)+Math.random().toString(36).slice(2);
  const c=D[sh],r=id?data[sh].rows.find(x=>x.ID===id):{};
  const fl=c.f.map(([k,t])=>{let v=r[k]??'';if(t==='pct'&&v!=='')v=+(v*100).toFixed(2);if(!id&&k==='Tanggal')v=iso(new Date());const n=esc(k),vv=esc(v);let i;
   if(Array.isArray(t))i=`<select name="${n}"><option></option>${t.map(o=>`<option${o===v?' selected':''}>${o}</option>`).join('')}</select>`;
@@ -108,8 +120,8 @@ function edit(sh,id){
 function closeSheet(){$('#sheet').hidden=true}
 async function save(e,sh,id){e.preventDefault();const f=e.target,row={};if(id)row.ID=id;
  D[sh].f.forEach(([k,t])=>{let v=f.elements[k].value.trim();if(t==='num'||t==='pct'){v=v===''?null:Number(v);if(t==='pct'&&v!==null)v/=100}row[k]=v});
- busy(1);try{await api({action:'save',sheet:sh,row});await load();closeSheet();toast('Tersimpan')}catch(x){$('#err').textContent=x.message}busy(0);return false}
-async function del(sh,id){if(!confirm('Hapus data ini?'))return;busy(1);try{await api({action:'delete',sheet:sh,id});await load();closeSheet();toast('Terhapus')}catch(x){$('#err').textContent=x.message}busy(0)}
+ busy(1);try{const j=await api({action:'save',sheet:sh,row,rid:window.rid}),rows=data[sh].rows,k=rows.findIndex(x=>x.ID===j.id);k<0?rows.push(j.row):rows[k]=j.row;localStorage.cache=JSON.stringify(data);closeSheet();render();fire();toast('Tersimpan')}catch(x){$('#err').textContent=x.message;if(x.soft)load()}busy(0);return false}
+async function del(sh,id){if(!confirm('Hapus data ini?'))return;busy(1);try{await api({action:'delete',sheet:sh,id});data[sh].rows=data[sh].rows.filter(x=>x.ID!==id);localStorage.cache=JSON.stringify(data);closeSheet();render();toast('Terhapus')}catch(x){$('#err').textContent=x.message}busy(0)}
 async function up(inp){const file=inp.files[0];if(!file)return;const h=inp.nextElementSibling;busy(1);
  try{const im=await createImageBitmap(file),s=Math.min(1,1200/Math.max(im.width,im.height)),cv=document.createElement('canvas');cv.width=im.width*s;cv.height=im.height*s;cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);
   const j=await api({action:'upload',data:cv.toDataURL('image/jpeg',.72).split(',')[1]});h.value=j.url;h.nextElementSibling.innerHTML=thumb(j.url)}catch(x){$('#err').textContent=x.message}busy(0)}
