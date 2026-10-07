@@ -161,5 +161,12 @@ function perbaruiRingkasan() {
   set('Total Tabungan terkumpul', '=' + sf('Tabungan') + '-' + sf('Pengeluaran', tab), 'Setoran dikurangi pengeluaran bermetode Tabungan.');
   set('Saldo kas (Pemasukan - Pengeluaran - Tabungan)', '=' + sf('Pemasukan') + '-(' + sf('Pengeluaran') + '-' + sf('Pengeluaran', tab) + ')-' + sf('Tabungan'), 'Tabungan yang dipakai tidak mengurangi kas.');
   t.getRange('G2:G1000').setDataValidation(SpreadsheetApp.newDataValidation()
-    .requireValueInList(['Tunai', 'Transfer Bank', 'E-Wallet', 'Kartu Debit', 'Kartu Kredit', 'Tabungan'], true).build());
+    .requireValueInList(['Tunai', 'Transfer Bank', 'E-Wallet', 'QRIS', 'Kartu Debit', 'Kartu Kredit', 'Tabungan'], true).build());
+}
+
+// Jalankan SEKALI: menambah kategori "Elektronik" dan metode "QRIS" ke pilihan (dropdown) di sheet Transaksi.
+function perbaruiDaftar() {
+  const t = ss().getSheetByName('Transaksi'), dv = l => SpreadsheetApp.newDataValidation().requireValueInList(l, true).build();
+  t.getRange('D2:D1000').setDataValidation(dv(['Gaji', 'Bonus', 'Makan', 'Transport', 'Tagihan', 'Belanja', 'Elektronik', 'Hiburan', 'Kesehatan', 'Pendidikan', 'Tabungan', 'Lainnya']));
+  t.getRange('G2:G1000').setDataValidation(dv(['Tunai', 'Transfer Bank', 'E-Wallet', 'QRIS', 'Kartu Debit', 'Kartu Kredit', 'Tabungan']));
 }

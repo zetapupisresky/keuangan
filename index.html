@@ -51,6 +51,14 @@ input,select,textarea{display:block;width:100%;padding:10px;margin-top:4px;borde
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}.cards .pc{margin:0}
 .pbw{padding:8px 12px 0}.pb{height:8px;background:var(--line);border-radius:4px;overflow:hidden}.pb i{display:block;height:100%;background:var(--accent)}.pbw small{color:var(--text-mute)}
 .qa{display:flex;gap:8px;margin:0 0 12px}.qa .add{flex:1;margin:0}.stat small{display:block;color:var(--text-mute);font-size:12px;margin-top:2px}
+.chip{display:inline-block;font:600 11px var(--sans);padding:2px 8px;border-radius:20px;margin-left:8px;vertical-align:1px}
+.c-ok{background:var(--accent2-soft);color:var(--accent2)}.c-warn{background:var(--accent-soft);color:var(--text)}.c-bad{background:var(--negative-soft);color:var(--negative)}.c-mut{background:var(--line);color:var(--text-mute)}
+.gctl{display:flex;flex-wrap:wrap;gap:8px;padding:4px 12px 0}.gs{margin:0;font-size:11.5px;flex:1;min-width:104px}.gs select{padding:6px 8px;font-size:14px;margin-top:2px}
+.gb{padding:6px 12px 0}.gcap{padding:0 12px;margin:10px 0 0;font-size:13px;min-height:18px}.gh{margin:14px 0 4px;font-size:13px;color:var(--text-mute)}.gb .ln{padding:7px 0}
+.dn{display:flex;gap:14px;align-items:center;flex-wrap:wrap}.dn svg{width:150px;height:150px;flex:none}.lgs{flex:1;min-width:150px}
+.lg{display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0;cursor:pointer}.lg i{width:10px;height:10px;border-radius:50%;flex:none}.lg span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lg b{font-weight:600}
+.hb{cursor:pointer;margin:9px 0}.hl{display:flex;justify-content:space-between;gap:8px;font-size:13px}.hl span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bt2{height:10px;background:var(--line);border-radius:5px;overflow:hidden;margin-top:3px}.bt2 i{display:block;height:100%;border-radius:5px}
 #toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:var(--ink);color:var(--on-ink);padding:9px 14px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20;max-width:90%}
 #toast.s{opacity:1}
 
@@ -168,14 +176,75 @@ function krecalc(){
  const mx=Math.max(...KX.map(x=>sub[x.k]*ppl),1);
  $('#kBd').innerHTML=KX.map(x=>`<div class="bd"><div><span>${x.n}</span><span>${rp(sub[x.k]*ppl)}</span></div><div class="bt"><i style="width:${(sub[x.k]*ppl/mx*100).toFixed(1)}%"></i></div></div>`).join('')}
 
+/* ===== GRAFIK ===== */
+const PAL=['var(--accent)','var(--accent2)','var(--negative)','#5B8DEF','#9B6BD3','#E58E3E','#3FA796','#C75B9B','#8A97A3'];
+const TC={Pemasukan:'var(--accent2)',Pengeluaran:'var(--negative)',Tabungan:'var(--accent)'};
+const SC={'Belum Mulai':'#8A97A3',Berjalan:'var(--accent)',Selesai:'var(--accent2)',Ditunda:'var(--negative)','Belum Bayar':'var(--negative)',DP:'var(--accent)',Lunas:'var(--accent2)',Rencana:'#8A97A3',Menabung:'#5B8DEF','Cicilan Berjalan':'var(--accent)',Batal:'#B0B6BD'};
+const CC={Selesai:'ok',Lunas:'ok',Berjalan:'warn',DP:'warn',Menabung:'warn','Cicilan Berjalan':'warn',Ditunda:'bad','Belum Bayar':'bad','Belum Mulai':'mut',Rencana:'mut',Batal:'mut'};
+const chip=(tab,r)=>{const s=tab==='Rencana Liburan'?(r['Status Bayar']||'Belum Bayar'):tab==='Transaksi'?'':r.Status;return s?`<span class="chip c-${CC[s]||'mut'}">${esc(s)}</span>`:''};
+const BL=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+const GD={tx:{tipe:'Semua',by:'Kategori',metric:'Rp',form:'Donat',per:'Semua waktu'},met:{tipe:'Semua',metric:'Frekuensi',form:'Batang',per:'Semua waktu'},top:{tipe:'Semua',by:'Kategori',n:'5',per:'Semua waktu'},trn:{n:'6'},lib:{by:'Trip',metric:'Estimasi',form:'Batang'},prg:{by:'Status',metric:'Jumlah program',form:'Donat'},bel:{by:'Status',metric:'Jumlah barang',form:'Donat'}};
+let GF=null;const gf=()=>GF||(GF=JSON.parse(localStorage.gf||'{}'));
+const gv=(id,k)=>(gf()[id]||{})[k]??GD[id][k];
+const short=n=>n>=1e9?(n/1e9).toFixed(1).replace('.',',')+' M':n>=1e6?(n/1e6).toFixed(1).replace('.',',')+' jt':n>=1e3?Math.round(n/1e3)+' rb':String(Math.round(n));
+const fR=(v,s)=>s?short(v):rp(v),fN=u=>v=>v+' '+u;
+const nn=v=>+v||0;
+function gset(id,k,v){const F=gf();(F[id]=F[id]||{})[k]=v;localStorage.gf=JSON.stringify(F);const e=$('#g_'+id);if(e)e.outerHTML=G[id]()}
+function gcap(id,t){const e=$('#cap_'+id);if(e)e.textContent=t}
+function agg(rows,kf,vf){const m={};rows.forEach(r=>{const l=String(kf(r)??'').trim()||'(kosong)',k=l.toLowerCase();const x=m[k]=m[k]||{l:l[0].toUpperCase()+l.slice(1),v:0};x.v+=vf(r)});return Object.values(m).filter(x=>x.v>0).sort((a,b)=>b.v-a.v)}
+const lim=(it,n)=>{n=+n;if(it.length<=n)return it;return [...it.slice(0,n-1),{l:'Lainnya',v:it.slice(n-1).reduce((a,x)=>a+x.v,0)}]};
+const NO='<p class="mut">Belum ada data.</p>';
+function donut(id,it,fv,col){const tot=it.reduce((a,x)=>a+x.v,0);if(!tot)return NO;const R=54,C=2*Math.PI*R;let off=0;
+ const tx=(x)=>`${x.l}: ${fv(x.v)} (${Math.round(x.v/tot*100)}%)`,cl=(x,i)=>(col&&col[x.l])||PAL[i%PAL.length];
+ const seg=it.map((x,i)=>{const len=x.v/tot*C,s=`<circle cx="70" cy="70" r="${R}" fill="none" stroke="${cl(x,i)}" stroke-width="22" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 70 70)" data-t="${esc(tx(x))}" onclick="gcap('${id}',this.dataset.t)" style="cursor:pointer"><title>${esc(tx(x))}</title></circle>`;off+=len;return s}).join('');
+ return `<div class="dn"><svg viewBox="0 0 140 140" role="img" aria-label="Grafik donat">${seg}<text x="70" y="66" text-anchor="middle" font-size="9" fill="var(--text-mute)">Total</text><text x="70" y="82" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text)">${esc(fv(tot,1))}</text></svg><div class="lgs">${it.map((x,i)=>`<div class="lg" data-t="${esc(tx(x))}" onclick="gcap('${id}',this.dataset.t)"><i style="background:${cl(x,i)}"></i><span>${esc(x.l)}</span><b>${esc(fv(x.v))}</b></div>`).join('')}</div></div>`}
+function bars(id,it,fv,col){const tot=it.reduce((a,x)=>a+x.v,0),mx=Math.max(...it.map(x=>x.v),1);if(!tot)return NO;
+ return it.map((x,i)=>`<div class="hb" data-t="${esc(`${x.l}: ${fv(x.v)} (${Math.round(x.v/tot*100)}%)`)}" onclick="gcap('${id}',this.dataset.t)"><div class="hl"><span>${esc(x.l)}</span><b>${esc(fv(x.v))}</b></div><div class="bt2"><i style="width:${(x.v/mx*100).toFixed(1)}%;background:${(col&&col[x.l])||PAL[i%PAL.length]}"></i></div></div>`).join('')}
+function gcard(id,title,ctl,body){const sel=ctl.map(([k,l,o])=>`<label class="gs">${l}<select onchange="gset('${id}','${k}',this.value)">${o.map(v=>`<option${String(v)===String(gv(id,k))?' selected':''}>${v}</option>`).join('')}</select></label>`).join('');
+ return `<section class="pc" id="g_${id}"><h3>${title}</h3><div class="gctl">${sel}</div><div class="gb">${body}</div><p class="mut gcap" id="cap_${id}">Ketuk bagian grafik untuk melihat detail.</p></section>`}
+const TIPE=['Semua','Pemasukan','Pengeluaran','Tabungan'],PER=['Bulan terpilih','Semua waktu'],BENTUK=['Donat','Batang'];
+const inP=(id,r)=>gv(id,'per')!=='Bulan terpilih'||String(r.Tanggal).startsWith(ym);
+function txCard(id,title,fixed){const by=fixed||gv(id,'by'),mt=gv(id,'metric'),tp=gv(id,'tipe'),fm=gv(id,'form')==='Donat';
+ const rows=data.Transaksi.rows.filter(r=>(tp==='Semua'||r.Tipe===tp)&&inP(id,r)),fv=mt==='Frekuensi'?fN('x'):fR;
+ const it=lim(agg(rows,r=>by==='Tipe'?r.Tipe:by==='Kategori'?r.Kategori:by==='Metode'?r.Metode:r.Deskripsi,r=>mt==='Frekuensi'?1:nn(r['Jumlah (Rp)'])),fm?7:10),col=by==='Tipe'?TC:null;
+ return gcard(id,title,[['tipe','Tipe',TIPE],...(fixed?[]:[['by','Berdasarkan',['Tipe','Kategori','Metode','Deskripsi']]]),['metric','Ukuran',['Rp','Frekuensi']],['form','Bentuk',BENTUK],['per','Periode',PER]],fm?donut(id,it,fv,col):bars(id,it,fv,col))}
+function topCard(){const id='top',n=+gv(id,'n'),by=gv(id,'by'),tps=gv(id,'tipe')==='Semua'?TIPE.slice(1):[gv(id,'tipe')];
+ return gcard(id,'🏆 Transaksi tertinggi',[['tipe','Tipe',TIPE],['by','Berdasarkan',['Kategori','Deskripsi']],['n','Tampilkan',['3','5','10']],['per','Periode',PER]],
+  tps.map(tp=>`<h4 class="gh" style="color:${TC[tp]}">${tp}</h4>`+bars(id,agg(data.Transaksi.rows.filter(r=>r.Tipe===tp&&inP(id,r)),r=>by==='Kategori'?r.Kategori:r.Deskripsi,r=>nn(r['Jumlah (Rp)'])).slice(0,n),fR)).join(''))}
+function trendCard(){const id='trn',n=+gv(id,'n'),ms=[];let [y,m]=ym.split('-').map(Number);for(let i=0;i<n;i++){ms.unshift(y+'-'+String(m).padStart(2,'0'));if(--m<1){m=12;y--}}
+ const S={Pemasukan:[],Pengeluaran:[],Tabungan:[]};ms.forEach(k=>{for(const t in S)S[t].push(data.Transaksi.rows.reduce((a,r)=>r.Tipe===t&&String(r.Tanggal).startsWith(k)?a+nn(r['Jumlah (Rp)']):a,0))});
+ const mx=Math.max(...Object.values(S).flat(),1),W=320,H=150,px=i=>n>1?40+i*(W-52)/(n-1):W/2,py=v=>H-22-v/mx*(H-44);
+ const lines=Object.keys(S).map(t=>`<polyline fill="none" stroke="${TC[t]}" stroke-width="2.5" stroke-linejoin="round" points="${S[t].map((v,i)=>px(i)+','+py(v)).join(' ')}"/>`+S[t].map((v,i)=>{const tx=`${t} ${BL[+ms[i].slice(5)-1]} ${ms[i].slice(0,4)}: ${rp(v)}`;return `<circle cx="${px(i)}" cy="${py(v)}" r="5" fill="${TC[t]}" data-t="${esc(tx)}" onclick="gcap('${id}',this.dataset.t)" style="cursor:pointer"><title>${esc(tx)}</title></circle>`}).join('')).join('');
+ const grid=[0,.5,1].map(f=>`<line x1="34" x2="${W}" y1="${py(mx*f)}" y2="${py(mx*f)}" stroke="var(--line)" stroke-dasharray="3 3"/><text x="0" y="${py(mx*f)+3}" font-size="9" fill="var(--text-mute)">${short(mx*f)}</text>`).join('');
+ const xl=ms.map((k,i)=>`<text x="${px(i)}" y="${H-5}" text-anchor="middle" font-size="9" fill="var(--text-mute)">${BL[+k.slice(5)-1]}</text>`).join('');
+ return gcard(id,'📈 Tren bulanan',[['n','Jumlah bulan',['3','6','12']]],`<svg viewBox="0 0 ${W} ${H}" style="width:100%">${grid}${lines}${xl}</svg><div class="dn" style="gap:14px">${Object.keys(S).map(t=>`<span class="lg"><i style="background:${TC[t]}"></i>${t}</span>`).join('')}</div>`)}
+const row2=(l,v,c)=>`<div class="ln"><span>${l}</span><b class="${c||''}">${v}</b></div>`;
+function libCard(){const id='lib',L=data['Rencana Liburan'].rows,by=gv(id,'by'),mt=gv(id,'metric'),nl=r=>r['Status Bayar']!=='Lunas',sisa=r=>nl(r)?Math.max(0,nn(r['Estimasi (Rp)'])-nn(r['Aktual (Rp)'])):0,fm=gv(id,'form')==='Donat';
+ const it=lim(agg(L,r=>by==='Trip'?r['Tujuan / Trip']:by==='Kategori Biaya'?r['Kategori Biaya']:(r['Status Bayar']||'Belum Bayar'),r=>mt==='Estimasi'?nn(r['Estimasi (Rp)']):mt==='Aktual'?nn(r['Aktual (Rp)']):mt==='Sisa belum lunas'?sisa(r):1),fm?7:10),fv=mt==='Jumlah item'?fN('item'):fR,col=by==='Status Bayar'?SC:null;
+ const op=L.filter(nl).sort((a,b)=>sisa(b)-sisa(a)).slice(0,8);
+ return gcard(id,'✈️ Rencana liburan',[['by','Berdasarkan',['Trip','Kategori Biaya','Status Bayar']],['metric','Ukuran',['Estimasi','Aktual','Sisa belum lunas','Jumlah item']],['form','Bentuk',['Batang','Donat']]],
+  (fm?donut(id,it,fv,col):bars(id,it,fv,col))+`<h4 class="gh">Belum lunas (${L.filter(nl).length})</h4>`+(op.length?op.map(r=>row2(esc(r['Tujuan / Trip'])+' / '+esc(r['Kategori Biaya']||'-')+' '+chip('Rencana Liburan',r),rp(sisa(r)),'out')).join(''):'<p class="mut">Semua sudah lunas.</p>'))}
+function prgCard(){const id='prg',P=data['Rencana Program'].rows,by=gv(id,'by'),mt=gv(id,'metric'),ns=r=>r.Status!=='Selesai',sisa=r=>ns(r)?Math.max(0,nn(r['Anggaran (Rp)'])-nn(r['Realisasi (Rp)'])):0,fm=gv(id,'form')==='Donat',rk={Berjalan:0,'Belum Mulai':1,Ditunda:2};
+ const it=lim(agg(P,r=>by==='Status'?r.Status:by==='Kategori'?r.Kategori:r.Prioritas,r=>mt==='Jumlah program'?1:mt==='Anggaran'?nn(r['Anggaran (Rp)']):sisa(r)),fm?7:10),fv=mt==='Jumlah program'?fN('program'):fR,col=by==='Status'?SC:null;
+ const op=P.filter(ns).sort((a,b)=>(rk[a.Status]??3)-(rk[b.Status]??3)||sisa(b)-sisa(a)).slice(0,10);
+ return gcard(id,'🎯 Rencana program',[['by','Berdasarkan',['Status','Kategori','Prioritas']],['metric','Ukuran',['Jumlah program','Anggaran','Sisa belum terealisasi']],['form','Bentuk',BENTUK]],
+  (fm?donut(id,it,fv,col):bars(id,it,fv,col))+`<h4 class="gh">Belum selesai (${P.filter(ns).length})</h4>`+(op.length?op.map(r=>row2(esc(r['Nama Program'])+' '+chip('Rencana Program',r),rp(sisa(r)))).join(''):'<p class="mut">Semua program selesai.</p>'))}
+function belCard(){const id='bel',B=data['Rencana Pembelian'].rows,by=gv(id,'by'),mt=gv(id,'metric'),op=r=>r.Status!=='Lunas'&&r.Status!=='Batal',fm=gv(id,'form')==='Donat';
+ const it=lim(agg(B,r=>by==='Status'?r.Status:r.Kategori,r=>mt==='Jumlah barang'?1:mt==='Harga'?nn(r['Harga (Rp)']):mt==='Cicilan per bulan'?(r.Status==='Cicilan Berjalan'?nn(r['Cicilan per Bulan (Rp)']):0):nn(r['Total Bunga (Rp)'])),fm?7:10),fv=mt==='Jumlah barang'?fN('barang'):fR,col=by==='Status'?SC:null;
+ const ls=B.filter(op).sort((a,b)=>nn(b['Harga (Rp)'])-nn(a['Harga (Rp)'])).slice(0,10);
+ return gcard(id,'🛒 Rencana pembelian',[['by','Berdasarkan',['Status','Kategori']],['metric','Ukuran',['Jumlah barang','Harga','Cicilan per bulan','Total bunga']],['form','Bentuk',BENTUK]],
+  (fm?donut(id,it,fv,col):bars(id,it,fv,col))+`<h4 class="gh">Belum lunas (${B.filter(op).length})</h4>`+(ls.length?ls.map(r=>row2(esc(r['Nama Barang'])+' '+chip('Rencana Pembelian',r),rp(r.Status==='Cicilan Berjalan'&&r['Cicilan per Bulan (Rp)']?r['Cicilan per Bulan (Rp)']:r['Harga (Rp)'])+(r.Status==='Cicilan Berjalan'?'/bln':''))).join(''):'<p class="mut">Tidak ada yang belum lunas.</p>'))}
+const G={tx:()=>txCard('tx','📊 Grafik transaksi'),met:()=>txCard('met','💳 Metode pembayaran','Metode'),top:topCard,trn:trendCard,lib:libCard,prg:prgCard,bel:belCard};
+const gcards=()=>'<h2>📈 Grafik</h2>'+Object.values(G).map(f=>f()).join('');
+
 const D={
 'Transaksi':{lbl:'transaksi',ttl:'Deskripsi',amt:'Jumlah (Rp)',meta:r=>[r.Tanggal,r.Kategori,r.Metode].filter(Boolean).join(' / '),
- f:[['Tanggal','date'],['Tipe',['Pemasukan','Pengeluaran','Tabungan']],['Kategori',['Gaji','Bonus','Makan','Transport','Tagihan','Belanja','Hiburan','Kesehatan','Pendidikan','Tabungan','Lainnya']],['Deskripsi'],['Jumlah (Rp)','num'],['Metode',['Tunai','Transfer Bank','E-Wallet','Kartu Debit','Kartu Kredit','Tabungan']],['Catatan','area'],['Link Gambar','img']]},
-'Rencana Liburan':{lbl:'rencana liburan',ttl:'Tujuan / Trip',amt:'Estimasi (Rp)',meta:r=>[r['Kategori Biaya'],r['Tgl Mulai'],r['Status Bayar']].filter(Boolean).join(' / '),
+ f:[['Tanggal','date'],['Tipe',['Pemasukan','Pengeluaran','Tabungan']],['Kategori',['Gaji','Bonus','Makan','Transport','Tagihan','Belanja','Elektronik','Hiburan','Kesehatan','Pendidikan','Tabungan','Lainnya']],['Deskripsi'],['Jumlah (Rp)','num'],['Metode',['Tunai','Transfer Bank','E-Wallet','QRIS','Kartu Debit','Kartu Kredit','Tabungan']],['Catatan','area'],['Link Gambar','img']]},
+'Rencana Liburan':{lbl:'rencana liburan',ttl:'Tujuan / Trip',amt:'Estimasi (Rp)',meta:r=>[r['Kategori Biaya'],r['Tgl Mulai']].filter(Boolean).join(' / '),
  f:[['Tujuan / Trip'],['Tgl Mulai','date'],['Tgl Selesai','date'],['Kategori Biaya',['Transport','Akomodasi','Makan','Tiket / Aktivitas','Oleh-oleh','Lain-lain']],['Rincian','area'],['Estimasi (Rp)','num'],['Aktual (Rp)','num'],['Status Bayar',['Belum Bayar','DP','Lunas']],['Catatan','area'],['Link Gambar','img']]},
-'Rencana Program':{lbl:'rencana program',ttl:'Nama Program',amt:'Anggaran (Rp)',meta:r=>[r.Status,r['Progress (%)']!==''?Math.round(r['Progress (%)']*100)+'%':'',r['Target Selesai']].filter(Boolean).join(' / '),
+'Rencana Program':{lbl:'rencana program',ttl:'Nama Program',amt:'Anggaran (Rp)',meta:r=>[r['Progress (%)']!==''?Math.round(r['Progress (%)']*100)+'%':'',r['Target Selesai']].filter(Boolean).join(' / '),
  f:[['Nama Program'],['Deskripsi / Tujuan','area'],['Kategori'],['Tgl Mulai','date'],['Target Selesai','date'],['Anggaran (Rp)','num'],['Realisasi (Rp)','num'],['Prioritas',['Tinggi','Sedang','Rendah']],['Status',['Belum Mulai','Berjalan','Selesai','Ditunda']],['Progress (%)','pct'],['Catatan','area'],['Link Gambar','img']]},
-'Rencana Pembelian':{lbl:'rencana pembelian',ttl:'Nama Barang',amt:'Harga (Rp)',meta:r=>[r.Status,r['Cicilan per Bulan (Rp)']?rp(r['Cicilan per Bulan (Rp)'])+'/bln':''].filter(Boolean).join(' / '),
+'Rencana Pembelian':{lbl:'rencana pembelian',ttl:'Nama Barang',amt:'Harga (Rp)',meta:r=>[r['Cicilan per Bulan (Rp)']?rp(r['Cicilan per Bulan (Rp)'])+'/bln':''].filter(Boolean).join(' / '),
  f:[['Nama Barang'],['Kategori'],['Harga (Rp)','num'],['Uang Muka / DP (Rp)','num'],['Bunga per Tahun (%)','pct'],['Jenis Bunga',['Efektif','Flat']],['Tenor (bulan)','num'],['Tgl Rencana Beli','date'],['Tgl Jatuh Tempo Cicilan (1-31)','num'],['Status',['Rencana','Menabung','Cicilan Berjalan','Lunas','Batal']],['Catatan','area'],['Link Gambar','img']]}
 };
 let ym=iso(new Date()).slice(0,7), tok=localStorage.tok, data=JSON.parse(localStorage.cache||'null'), tab='Ringkasan', mode='login', timer;
@@ -199,7 +268,7 @@ function render(){
  const c=D[tab],rows=data[tab].rows.slice().reverse();
  m.innerHTML=`<button class="add" onclick="edit('${tab}')">+ Tambah ${c.lbl}</button>`+(rows.length?rows.map(r=>{
   const neg=tab==='Transaksi'&&r.Tipe==='Pengeluaran',pos=tab==='Transaksi'&&r.Tipe==='Pemasukan',im=thumb(r['Link Gambar']);
-  return `<button class="card" onclick="edit('${tab}','${esc(r.ID)}')"><span>${esc(r[c.ttl])}<small>${esc(c.meta(r))}</small></span><span style="display:flex;gap:10px;align-items:center">${im}<b class="a ${neg?'out':pos?'in':''}">${rp(r[c.amt])}</b></span></button>`}).join(''):'<p class="mut">Belum ada data. Tekan Tambah untuk mulai mencatat.</p>');
+  return `<button class="card" onclick="edit('${tab}','${esc(r.ID)}')"><span>${esc(r[c.ttl])}${chip(tab,r)}<small>${esc(c.meta(r))}</small></span><span style="display:flex;gap:10px;align-items:center">${im}<b class="a ${neg?'out':pos?'in':''}">${rp(r[c.amt])}</b></span></button>`}).join(''):'<p class="mut">Belum ada data. Tekan Tambah untuk mulai mencatat.</p>');
 }
 function summary(m){
  const T=data.Transaksi.rows,sum=(sh,k,f)=>data[sh].rows.reduce((a,r)=>!f||f(r)?a+(+r[k]||0):a,0),cnt=(sh,f)=>data[sh].rows.filter(f).length;
@@ -215,7 +284,7 @@ function summary(m){
  const R=reminders(),ok='Notification' in window&&Notification.permission==='granted';
  m.innerHTML=`<div class="dh"><h2>🏠 Dashboard</h2><input type="month" value="${ym}" onchange="ym=this.value||ym;render()" style="width:auto;margin:0;padding:6px 10px;font-size:14px"></div>`+
  `<div class="stats">${stat('💰','Pemasukan',rp(pm),'in')}${stat('💸','Pengeluaran',rp(pg),'out',pgT?'termasuk '+rp(pgT)+' dari tabungan':'')}${stat('🏦','Tabungan',rp(tb))}${stat('💵','Sisa bulan ini',rp(sisa),sisa<0?'out':'')}</div>`+
- `<section class="pc"><h3>📊 Transaksi Terbaru</h3>`+(rec.length?rec.map(r=>{const p=r.Tipe==='Pemasukan',o=r.Tipe==='Pengeluaran';return `<div class="ln"><span><b style="color:var(--ink)">${esc(r.Deskripsi)}</b><small style="display:block">${esc(r.Tanggal)} / ${esc(r.Kategori)}</small></span><b class="${p?'in':o?'out':''}">${p?'+':o?'-':''}${rp(r['Jumlah (Rp)'])}</b></div>`}).join(''):'<p class="mut" style="margin:8px 12px">Belum ada transaksi.</p>')+`</section>`+
+ `<section class="pc"><h3>📊 Transaksi Terbaru</h3>`+(rec.length?rec.map(r=>{const p=r.Tipe==='Pemasukan',o=r.Tipe==='Pengeluaran';return `<div class="ln"><span><b style="color:var(--ink)">${esc(r.Deskripsi)}</b><small style="display:block">${esc(r.Tanggal)} / ${esc(r.Kategori)}</small></span><b class="${p?'in':o?'out':''}">${p?'+':o?'-':''}${rp(r['Jumlah (Rp)'])}</b></div>`}).join(''):'<p class="mut" style="margin:8px 12px">Belum ada transaksi.</p>')+`</section>`+gcards()+
  `<h2>Semua waktu</h2><div class="stats">${stat('🏦','Saldo tabungan',rp(tbAll-pgTA),'','Disetor '+rp(tbAll)+', terpakai '+rp(pgTA))}${stat('💼','Saldo kas',rp(kas),kas<0?'out':'')}</div><div class="qa"><button class="add" onclick="edit('Transaksi',0,{Tipe:'Pengeluaran',Metode:'Tabungan',Kategori:'Lainnya'})">➖ Pakai tabungan</button><button class="add" onclick="edit('Transaksi',0,{Tipe:'Tabungan',Kategori:'Tabungan'})">➕ Setor tabungan</button></div>`+
  `<div class="cards">`+
  card('✈️ Rencana Liburan',[ln('Total Estimasi Biaya',rp(le)),ln('Total Biaya Aktual',rp(la)),ln('Sisa belum lunas',rp(lsisa),lsisa?'out':''),ln('Item belum lunas',cnt(Lb,nl))],bar(pct(la,le),'Terbayar'))+
