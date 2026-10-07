@@ -11,10 +11,11 @@ function setup() { ss(); DriveApp.getRootFolder(); accSheet(); }  // untuk membe
 function doGet() { return out({ok: true, msg: 'API Keuangan aktif'}); }
 
 function doPost(e) {
-  const l = LockService.getScriptLock(); l.waitLock(20000);
-  try { return out(handle(JSON.parse(e.postData.contents))); }
-  catch (err) { return out({ok: false, error: String(err.message || err)}); }
-  finally { l.releaseLock(); }
+  try {
+    const d = JSON.parse(e.postData.contents), w = ['save', 'delete', 'register'].indexOf(d.action) >= 0, l = LockService.getScriptLock();
+    if (w && !l.tryLock(25000)) throw new Error('Server sibuk, coba lagi sebentar');
+    try { return out(handle(d)); } finally { if (w) l.releaseLock(); }
+  } catch (err) { return out({ok: false, error: String(err.message || err)}); }
 }
 
 function handle(d) {
@@ -60,18 +61,27 @@ function auth(d) {
 function tbl(n) { const s = ss().getSheetByName(n); if (!s || !SHEETS[n]) throw new Error('Sheet tidak ditemukan: ' + n); return s; }
 function ids(s) { return s.getRange(2, 1, s.getMaxRows() - 1, 1).getValues().map(r => String(r[0])); }
 
+function rowObj(h, r, tz) {
+  const x = {};
+  h.forEach((k, i) => { let c = r[i]; if (c instanceof Date) c = Utilities.formatDate(c, tz, 'yyyy-MM-dd'); x[k] = c; });
+  return x;
+}
+
 function listAll() {
   const tz = ss().getSpreadsheetTimeZone(), o = {};
   for (const n in SHEETS) {
-    const v = tbl(n).getDataRange().getValues(), h = v[0];
-    o[n] = {rows: v.slice(1).filter(r => r[0] !== '').map(r => {
-      const x = {}; h.forEach((k, i) => { let c = r[i]; if (c instanceof Date) c = Utilities.formatDate(c, tz, 'yyyy-MM-dd'); x[k] = c; }); return x; })};
+    const s = tbl(n), list = ids(s); let last = list.length;
+    while (last > 0 && !list[last - 1]) last--;
+    const v = s.getRange(1, 1, last + 1, s.getLastColumn()).getValues(), h = v[0];
+    o[n] = {rows: v.slice(1).filter(r => r[0] !== '').map(r => rowObj(h, r, tz))};
   }
   return o;
 }
 
 function save(d) {
-  const s = tbl(d.sheet), h = s.getRange(1, 1, 1, s.getLastColumn()).getValues()[0], list = ids(s);
+  const cache = CacheService.getScriptCache(), rid = d.rid ? 'r_' + d.rid : '';
+  if (rid && cache.get(rid)) return JSON.parse(cache.get(rid));  // permintaan ulang: jangan tulis dua kali
+  const s = tbl(d.sheet), list = ids(s), ncol = s.getLastColumn(), tz = ss().getSpreadsheetTimeZone();
   let id = d.row.ID, i;
   if (id) { i = list.indexOf(String(id)); if (i < 0) throw new Error('Data tidak ditemukan'); }
   else {
@@ -80,19 +90,26 @@ function save(d) {
     i = list.indexOf(''); if (i < 0) throw new Error('Baris di sheet sudah penuh, tambahkan baris kosong');
   }
   d.row.ID = id;
-  h.forEach((k, c) => {
-    if (CALC.indexOf(k) >= 0 || d.row[k] === undefined) return;
-    let v = d.row[k] === null ? '' : d.row[k];
-    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) v = Utilities.parseDate(v, ss().getSpreadsheetTimeZone(), 'yyyy-MM-dd');
-    s.getRange(i + 2, c + 1).setValue(v);
-  });
-  return {ok: true, id: id};
+  const rg = s.getRange(i + 2, 1, 1, ncol), fm = rg.getFormulas()[0], old = rg.getValues()[0];
+  const h = s.getRange(1, 1, 1, ncol).getValues()[0];
+  rg.setValues([h.map((k, c) => {
+    if (fm[c]) return fm[c];  // kolom rumus dibiarkan
+    let v = d.row[k]; if (v === undefined) return old[c];
+    if (v === null) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) v = Utilities.parseDate(v, tz, 'yyyy-MM-dd');
+    return v;
+  })]);
+  SpreadsheetApp.flush();
+  const res = {ok: true, id: id, row: rowObj(h, rg.getValues()[0], tz)};
+  if (rid) cache.put(rid, JSON.stringify(res), 600);
+  return res;
 }
 
 function del(d) {
   const s = tbl(d.sheet), i = ids(s).indexOf(String(d.id));
   if (i < 0) throw new Error('Data tidak ditemukan');
-  s.getRange(1, 1, 1, s.getLastColumn()).getValues()[0].forEach((k, c) => { if (CALC.indexOf(k) < 0) s.getRange(i + 2, c + 1).clearContent(); });
+  const rg = s.getRange(i + 2, 1, 1, s.getLastColumn());
+  rg.setValues([rg.getFormulas()[0].map(f => f || '')]);
   return {ok: true};
 }
 
@@ -102,4 +119,47 @@ function upload(d) {
   const file = f.createFile(Utilities.newBlob(Utilities.base64Decode(d.data), 'image/jpeg', 'img_' + Date.now() + '.jpg'));
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   return {ok: true, url: 'https://drive.google.com/file/d/' + file.getId() + '/view'};
+}
+
+// Jalankan dari editor Apps Script: menambah / memperbaiki baris "sisa belum lunas" di sheet Ringkasan (aman dijalankan ulang).
+function tambahRingkasan() {
+  const s = ss().getSheetByName('Ringkasan'), L = "'Rencana Liburan'!", P = "'Rencana Program'!", RP = '"Rp" #,##0;("Rp" #,##0);-';
+  const find = t => s.getRange(1, 1, s.getLastRow(), 1).getValues().map(r => r[0]).indexOf(t) + 1;
+  const rg = (sh, c) => sh + '$' + c + '$2:$' + c + '$200';
+  const sisa = (sh, tot, real, st, v) => '=MAX(0,SUMIFS(' + rg(sh, tot) + ',' + rg(sh, st) + ',"<>' + v + '")-SUMIFS(' + rg(sh, real) + ',' + rg(sh, st) + ',"<>' + v + '"))';
+  const hitung = (sh, st, v) => '=COUNTIFS(' + rg(sh, 'A') + ',"<>",' + rg(sh, st) + ',"<>' + v + '")';
+  [['Total Biaya Aktual', [
+      ['Sisa belum lunas (Rp)', sisa(L, 'G', 'H', 'J', 'Lunas'), RP, 'Estimasi - Aktual, hanya item yang statusnya bukan Lunas. Isi Aktual dengan jumlah yang sudah dibayar (mis. DP).'],
+      ['Item liburan belum lunas', hitung(L, 'J', 'Lunas'), '0', '']]],
+   ['Sisa Anggaran', [
+      ['Sisa belum terealisasi (Rp)', sisa(P, 'G', 'H', 'K', 'Selesai'), RP, 'Anggaran - Realisasi, hanya program yang statusnya bukan Selesai.'],
+      ['Program belum selesai', hitung(P, 'K', 'Selesai'), '0', '']]]
+  ].forEach(([after, rows]) => {
+    let prev = find(after);
+    rows.forEach(x => {
+      let r = find(x[0]);
+      if (!r) { s.insertRowAfter(prev); r = prev + 1; s.getRange(r, 1).setValue(x[0]); }
+      prev = r;
+      s.getRange(r, 1, 1, 3).setFontFamily('Arial').setFontSize(10).setFontWeight('normal').setBackground(null);
+      s.getRange(r, 2).setFormula(x[1]).setNumberFormat(x[2]).setBorder(true, true, true, true, false, false, '#BFBFBF', SpreadsheetApp.BorderStyle.SOLID);
+      s.getRange(r, 3).setValue(x[3]).setFontStyle('italic').setFontColor('#5E7280');
+    });
+  });
+}
+
+// Jalankan SEKALI: Ringkasan memakai aturan baru. Pengeluaran dengan Metode "Tabungan" mengurangi tabungan, bukan kas.
+function perbaruiRingkasan() {
+  const s = ss().getSheetByName('Ringkasan'), t = ss().getSheetByName('Transaksi');
+  const R = c => 'Transaksi!$' + c + '$2:$' + c + '$1000', mon = R('B') + ',">="&$B$3,' + R('B') + ',"<"&EDATE($B$3,1)', tab = R('G') + ',"Tabungan"';
+  const sf = (tipe, ex) => 'SUMIFS(' + R('F') + ',' + R('C') + ',"' + tipe + '"' + (ex ? ',' + ex : '') + ')';
+  const row = l => s.getRange(1, 1, s.getLastRow(), 1).getValues().map(r => r[0]).indexOf(l) + 1;
+  const set = (l, f, note) => {
+    const r = row(l); if (!r) throw new Error('Baris tidak ditemukan: ' + l);
+    s.getRange(r, 2).setFormula(f); s.getRange(r, 3).setValue(note).setFontStyle('italic').setFontColor('#5E7280').setFontFamily('Arial').setFontSize(10);
+  };
+  set('Sisa bulan ini (Pemasukan - Pengeluaran - Tabungan)', '=B6-(B7-' + sf('Pengeluaran', tab + ',' + mon) + ')-B8', 'Pengeluaran bermetode Tabungan tidak mengurangi kas.');
+  set('Total Tabungan terkumpul', '=' + sf('Tabungan') + '-' + sf('Pengeluaran', tab), 'Setoran dikurangi pengeluaran bermetode Tabungan.');
+  set('Saldo kas (Pemasukan - Pengeluaran - Tabungan)', '=' + sf('Pemasukan') + '-(' + sf('Pengeluaran') + '-' + sf('Pengeluaran', tab) + ')-' + sf('Tabungan'), 'Tabungan yang dipakai tidak mengurangi kas.');
+  t.getRange('G2:G1000').setDataValidation(SpreadsheetApp.newDataValidation()
+    .requireValueInList(['Tunai', 'Transfer Bank', 'E-Wallet', 'Kartu Debit', 'Kartu Kredit', 'Tabungan'], true).build());
 }
