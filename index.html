@@ -53,7 +53,7 @@ input,select,textarea{display:block;width:100%;padding:10px;margin-top:4px;borde
 .qa{display:flex;gap:8px;margin:0 0 12px}.qa .add{flex:1;margin:0}.stat small{display:block;color:var(--text-mute);font-size:12px;margin-top:2px}
 .chip{display:inline-block;font:600 11px var(--sans);padding:2px 8px;border-radius:20px;margin-left:8px;vertical-align:1px}
 .c-ok{background:var(--accent2-soft);color:var(--accent2)}.c-warn{background:var(--accent-soft);color:var(--text)}.c-bad{background:var(--negative-soft);color:var(--negative)}.c-mut{background:var(--line);color:var(--text-mute)}
-.gctl{display:flex;flex-wrap:wrap;gap:8px;padding:4px 12px 0}.gs{margin:0;font-size:11.5px;flex:1;min-width:104px}.gs select{padding:6px 8px;font-size:14px;margin-top:2px}
+.gctl{display:flex;flex-wrap:wrap;gap:8px;padding:4px 12px 0}.gs{margin:0;font-size:11.5px;flex:1;min-width:104px}.gs input{padding:6px 8px;font-size:14px;margin-top:2px}.gs select{padding:6px 8px;font-size:14px;margin-top:2px}
 .gb{padding:6px 12px 0}.gcap{padding:0 12px;margin:10px 0 0;font-size:13px;min-height:18px}.gh{margin:14px 0 4px;font-size:13px;color:var(--text-mute)}.gb .ln{padding:7px 0}
 .dn{display:flex;gap:14px;align-items:center;flex-wrap:wrap}.dn svg{width:150px;height:150px;flex:none}.lgs{flex:1;min-width:150px}
 .lg{display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0;cursor:pointer}.lg i{width:10px;height:10px;border-radius:50%;flex:none}.lg span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lg b{font-weight:600}
@@ -184,7 +184,7 @@ const SC={'Belum Mulai':'#8A97A3',Berjalan:'var(--accent)',Selesai:'var(--accent
 const CC={Selesai:'ok',Lunas:'ok',Berjalan:'warn',DP:'warn',Menabung:'warn','Cicilan Berjalan':'warn',Ditunda:'bad','Belum Bayar':'bad','Belum Mulai':'mut',Rencana:'mut',Batal:'mut'};
 const chip=(tab,r)=>{const s=tab==='Rencana Liburan'?(r['Status Bayar']||'Belum Bayar'):tab==='Transaksi'?'':r.Status;return s?`<span class="chip c-${CC[s]||'mut'}">${esc(s)}</span>`:''};
 const BL=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
-const GD={tx:{tipe:'Semua',by:'Kategori',metric:'Rp',form:'Donat',per:'Semua waktu'},met:{tipe:'Semua',metric:'Frekuensi',form:'Batang',per:'Semua waktu'},top:{tipe:'Semua',by:'Kategori',n:'5',per:'Semua waktu'},trn:{n:'6'},lib:{by:'Trip',metric:'Estimasi',form:'Batang'},prg:{by:'Status',metric:'Jumlah program',form:'Donat'},bel:{by:'Status',metric:'Jumlah barang',form:'Donat'}};
+const GD={tx:{tipe:'Semua',by:'Kategori',metric:'Rp',form:'Donat',per:'Semua waktu'},met:{tipe:'Semua',metric:'Frekuensi',form:'Batang',per:'Semua waktu'},top:{tipe:'Semua',by:'Kategori',n:'5',per:'Semua waktu'},trn:{n:'6',g:'Semua',y:'Otomatis (mulai 0)',lo:'',hi:''},lib:{by:'Trip',metric:'Estimasi',form:'Batang'},prg:{by:'Status',metric:'Jumlah program',form:'Donat'},bel:{by:'Status',metric:'Jumlah barang',form:'Donat'}};
 let GF=null;const gf=()=>GF||(GF=JSON.parse(localStorage.gf||'{}'));
 const gv=(id,k)=>(gf()[id]||{})[k]??GD[id][k];
 const short=n=>n>=1e9?(n/1e9).toFixed(1).replace('.',',')+' M':n>=1e6?(n/1e6).toFixed(1).replace('.',',')+' jt':n>=1e3?Math.round(n/1e3)+' rb':String(Math.round(n));
@@ -201,7 +201,7 @@ function donut(id,it,fv,col){const tot=it.reduce((a,x)=>a+x.v,0);if(!tot)return 
  return `<div class="dn"><svg viewBox="0 0 140 140" role="img" aria-label="Grafik donat">${seg}<text x="70" y="66" text-anchor="middle" font-size="9" fill="var(--text-mute)">Total</text><text x="70" y="82" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text)">${esc(fv(tot,1))}</text></svg><div class="lgs">${it.map((x,i)=>`<div class="lg" data-t="${esc(tx(x))}" onclick="gcap('${id}',this.dataset.t)"><i style="background:${cl(x,i)}"></i><span>${esc(x.l)}</span><b>${esc(fv(x.v))}</b></div>`).join('')}</div></div>`}
 function bars(id,it,fv,col){const tot=it.reduce((a,x)=>a+x.v,0),mx=Math.max(...it.map(x=>x.v),1);if(!tot)return NO;
  return it.map((x,i)=>`<div class="hb" data-t="${esc(`${x.l}: ${fv(x.v)} (${Math.round(x.v/tot*100)}%)`)}" onclick="gcap('${id}',this.dataset.t)"><div class="hl"><span>${esc(x.l)}</span><b>${esc(fv(x.v))}</b></div><div class="bt2"><i style="width:${(x.v/mx*100).toFixed(1)}%;background:${(col&&col[x.l])||PAL[i%PAL.length]}"></i></div></div>`).join('')}
-function gcard(id,title,ctl,body){const sel=ctl.map(([k,l,o])=>`<label class="gs">${l}<select onchange="gset('${id}','${k}',this.value)">${o.map(v=>`<option${String(v)===String(gv(id,k))?' selected':''}>${v}</option>`).join('')}</select></label>`).join('');
+function gcard(id,title,ctl,body){const sel=ctl.map(([k,l,o])=>`<label class="gs">${l}${o==='num'?`<input type="number" inputmode="decimal" placeholder="Otomatis" value="${esc(gv(id,k))}" onchange="gset('${id}','${k}',this.value)">`:`<select onchange="gset('${id}','${k}',this.value)">${o.map(v=>`<option${String(v)===String(gv(id,k))?' selected':''}>${v}</option>`).join('')}</select>`}</label>`).join('');
  return `<section class="pc" id="g_${id}"><h3>${title}</h3><div class="gctl">${sel}</div><div class="gb">${body}</div><p class="mut gcap" id="cap_${id}">Ketuk bagian grafik untuk melihat detail.</p></section>`}
 const TIPE=['Semua','Pemasukan','Pengeluaran','Tabungan'],PER=['Bulan terpilih','Semua waktu'],BENTUK=['Donat','Batang'];
 const inP=(id,r)=>gv(id,'per')!=='Bulan terpilih'||String(r.Tanggal).startsWith(ym);
@@ -212,13 +212,20 @@ function txCard(id,title,fixed){const by=fixed||gv(id,'by'),mt=gv(id,'metric'),t
 function topCard(){const id='top',n=+gv(id,'n'),by=gv(id,'by'),tps=gv(id,'tipe')==='Semua'?TIPE.slice(1):[gv(id,'tipe')];
  return gcard(id,'🏆 Transaksi tertinggi',[['tipe','Tipe',TIPE],['by','Berdasarkan',['Kategori','Deskripsi']],['n','Tampilkan',['3','5','10']],['per','Periode',PER]],
   tps.map(tp=>`<h4 class="gh" style="color:${TC[tp]}">${tp}</h4>`+bars(id,agg(data.Transaksi.rows.filter(r=>r.Tipe===tp&&inP(id,r)),r=>by==='Kategori'?r.Kategori:r.Deskripsi,r=>nn(r['Jumlah (Rp)'])).slice(0,n),fR)).join(''))}
-function trendCard(){const id='trn',n=+gv(id,'n'),ms=[];let [y,m]=ym.split('-').map(Number);for(let i=0;i<n;i++){ms.unshift(y+'-'+String(m).padStart(2,'0'));if(--m<1){m=12;y--}}
- const S={Pemasukan:[],Pengeluaran:[],Tabungan:[]};ms.forEach(k=>{for(const t in S)S[t].push(data.Transaksi.rows.reduce((a,r)=>r.Tipe===t&&String(r.Tanggal).startsWith(k)?a+nn(r['Jumlah (Rp)']):a,0))});
- const mx=Math.max(...Object.values(S).flat(),1),W=320,H=150,px=i=>n>1?40+i*(W-52)/(n-1):W/2,py=v=>H-22-v/mx*(H-44);
- const lines=Object.keys(S).map(t=>`<polyline fill="none" stroke="${TC[t]}" stroke-width="2.5" stroke-linejoin="round" points="${S[t].map((v,i)=>px(i)+','+py(v)).join(' ')}"/>`+S[t].map((v,i)=>{const tx=`${t} ${BL[+ms[i].slice(5)-1]} ${ms[i].slice(0,4)}: ${rp(v)}`;return `<circle cx="${px(i)}" cy="${py(v)}" r="5" fill="${TC[t]}" data-t="${esc(tx)}" onclick="gcap('${id}',this.dataset.t)" style="cursor:pointer"><title>${esc(tx)}</title></circle>`}).join('')).join('');
- const grid=[0,.5,1].map(f=>`<line x1="34" x2="${W}" y1="${py(mx*f)}" y2="${py(mx*f)}" stroke="var(--line)" stroke-dasharray="3 3"/><text x="0" y="${py(mx*f)+3}" font-size="9" fill="var(--text-mute)">${short(mx*f)}</text>`).join('');
- const xl=ms.map((k,i)=>`<text x="${px(i)}" y="${H-5}" text-anchor="middle" font-size="9" fill="var(--text-mute)">${BL[+k.slice(5)-1]}</text>`).join('');
- return gcard(id,'📈 Tren bulanan',[['n','Jumlah bulan',['3','6','12']]],`<svg viewBox="0 0 ${W} ${H}" style="width:100%">${grid}${lines}${xl}</svg><div class="dn" style="gap:14px">${Object.keys(S).map(t=>`<span class="lg"><i style="background:${TC[t]}"></i>${t}</span>`).join('')}</div>`)}
+function trendCard(){const id='trn',n=+gv(id,'n'),gr=gv(id,'g'),yo=gv(id,'y'),ms=[];let [y,m]=ym.split('-').map(Number);for(let i=0;i<n;i++){ms.unshift(y+'-'+String(m).padStart(2,'0'));if(--m<1){m=12;y--}}
+ const show=gr==='Semua'?['Pemasukan','Pengeluaran','Tabungan']:gr==='Pengeluaran + Tabungan'?['Pengeluaran','Tabungan']:[gr],S={};
+ show.forEach(t=>S[t]=ms.map(k=>data.Transaksi.rows.reduce((a,r)=>r.Tipe===t&&String(r.Tanggal).startsWith(k)?a+nn(r['Jumlah (Rp)']):a,0)));
+ const vals=Object.values(S).flat();let lo=0,hi=Math.max(...vals,1);
+ if(yo==='Zoom otomatis'){const mn=Math.min(...vals),pad=(hi-mn)*.15||hi*.1||1;lo=Math.max(0,mn-pad);hi+=pad}
+ if(yo==='Manual'){const a=gv(id,'lo'),b=gv(id,'hi');if(a!=='')lo=+a;if(b!=='')hi=+b;if(hi<=lo)hi=lo+1}
+ const W=320,H=170,tp=14,bt=24,px=(i,s)=>n>1?40+i*(W-52)/(n-1):W/2+(s-(show.length-1)/2)*56,py=v=>Math.min(H-bt,Math.max(tp,H-bt-(v-lo)/(hi-lo)*(H-bt-tp)));
+ const BN=k=>BL[+k.slice(5)-1]+' '+k.slice(0,4),sm=(i,f)=>BN(ms[i])+': '+[f,...show.filter(t=>t!==f)].filter(Boolean).map(t=>t+' '+rp(S[t][i])).join(', '),cw=n>1?(W-52)/(n-1):W;
+ const cols=ms.map((k,i)=>`<rect x="${n>1?px(i,0)-cw/2:0}" y="0" width="${cw}" height="${H}" fill="transparent" data-t="${esc(sm(i))}" onclick="gcap('${id}',this.dataset.t)" style="cursor:pointer"/>`).join('');
+ const lines=show.map((t,s)=>`<polyline fill="none" stroke="${TC[t]}" stroke-width="2.5" stroke-linejoin="round"${t==='Tabungan'?' stroke-dasharray="6 3"':''} points="${S[t].map((v,i)=>px(i,s)+','+py(v)).join(' ')}"/>`+S[t].map((v,i)=>`<circle cx="${px(i,s)}" cy="${py(v)}" r="5" fill="${TC[t]}"/><circle cx="${px(i,s)}" cy="${py(v)}" r="13" fill="transparent" data-t="${esc(sm(i,t))}" onclick="gcap('${id}',this.dataset.t)" style="cursor:pointer"><title>${esc(sm(i,t))}</title></circle>`).join('')).join('');
+ const grid=[0,1/3,2/3,1].map(f=>{const v=lo+(hi-lo)*f;return `<line x1="34" x2="${W}" y1="${py(v)}" y2="${py(v)}" stroke="var(--line)" stroke-dasharray="3 3"/><text x="0" y="${py(v)+3}" font-size="9" fill="var(--text-mute)">${short(v)}</text>`}).join('');
+ const xl=ms.map((k,i)=>`<text x="${px(i,(show.length-1)/2)}" y="${H-6}" text-anchor="middle" font-size="9" fill="var(--text-mute)">${BL[+k.slice(5)-1]}</text>`).join('');
+ return gcard(id,'📈 Tren bulanan',[['n','Jumlah bulan',['1','2','3','4','5','6','7','8','9','10','11','12']],['g','Garis',['Semua','Pemasukan','Pengeluaran','Tabungan','Pengeluaran + Tabungan']],['y','Sumbu Y',['Otomatis (mulai 0)','Zoom otomatis','Manual']],['lo','Y min (Rp)','num'],['hi','Y max (Rp)','num']],
+  `<svg viewBox="0 0 ${W} ${H}" style="width:100%">${grid}${cols}${lines}${xl}</svg><div class="dn" style="gap:14px">${show.map(t=>`<span class="lg"><i style="background:${TC[t]}"></i>${t}</span>`).join('')}</div><p class="mut" style="margin:6px 0 0;font-size:12px">Ketuk titik atau kolom bulan untuk melihat semua nilainya. Tabungan digambar putus-putus.</p>`)}
 const row2=(l,v,c)=>`<div class="ln"><span>${l}</span><b class="${c||''}">${v}</b></div>`;
 function libCard(){const id='lib',L=data['Rencana Liburan'].rows,by=gv(id,'by'),mt=gv(id,'metric'),nl=r=>r['Status Bayar']!=='Lunas',sisa=r=>nl(r)?Math.max(0,nn(r['Estimasi (Rp)'])-nn(r['Aktual (Rp)'])):0,fm=gv(id,'form')==='Donat';
  const it=lim(agg(L,r=>by==='Trip'?r['Tujuan / Trip']:by==='Kategori Biaya'?r['Kategori Biaya']:(r['Status Bayar']||'Belum Bayar'),r=>mt==='Estimasi'?nn(r['Estimasi (Rp)']):mt==='Aktual'?nn(r['Aktual (Rp)']):mt==='Sisa belum lunas'?sisa(r):1),fm?7:10),fv=mt==='Jumlah item'?fN('item'):fR,col=by==='Status Bayar'?SC:null;
@@ -238,6 +245,7 @@ function belCard(){const id='bel',B=data['Rencana Pembelian'].rows,by=gv(id,'by'
 const G={tx:()=>txCard('tx','📊 Grafik transaksi'),met:()=>txCard('met','💳 Metode pembayaran','Metode'),top:topCard,trn:trendCard,lib:libCard,prg:prgCard,bel:belCard};
 const gcards=()=>'<h2>📈 Grafik</h2>'+Object.values(G).map(f=>f()).join('');
 
+const HINT={'Jenis Bunga':'Efektif = cicilan tetap (anuitas), umum untuk KPR bank. Flat = bunga dihitung dari pokok awal, umum untuk kredit motor, mobil, dan barang.'};
 const D={
 'Transaksi':{lbl:'transaksi',ttl:'Deskripsi',amt:'Jumlah (Rp)',meta:r=>[r.Tanggal,r.Kategori,r.Metode].filter(Boolean).join(' / '),
  f:[['Tanggal','date'],['Tipe',['Pemasukan','Pengeluaran','Tabungan']],['Kategori',['Gaji','Bonus','Makan','Transport','Tagihan','Belanja','Elektronik','Hiburan','Kesehatan','Pendidikan','Tabungan','Lainnya']],['Deskripsi'],['Jumlah (Rp)','num'],['Metode',['Tunai','Transfer Bank','E-Wallet','QRIS','Kartu Debit','Kartu Kredit','Tabungan']],['Catatan','area'],['Link Gambar','img']]},
@@ -284,7 +292,7 @@ function summary(m){
  const rec=T.slice().sort((a,b)=>String(b.Tanggal).localeCompare(String(a.Tanggal))||String(b.ID).localeCompare(String(a.ID))).slice(0,5);
  const R=reminders(),ok='Notification' in window&&Notification.permission==='granted';
  m.innerHTML=`<div class="dh"><h2>🏠 Dashboard</h2><input type="month" value="${ym}" onchange="ym=this.value||ym;render()" style="width:auto;margin:0;padding:6px 10px;font-size:14px"></div>`+
- `<div class="stats">${stat('💰','Pemasukan',rp(pm),'in')}${stat('💸','Pengeluaran',rp(pg),'out',pgT?'termasuk '+rp(pgT)+' dari tabungan':'')}${stat('🏦','Tabungan',rp(tb))}${stat('💵','Sisa bulan ini',rp(sisa),sisa<0?'out':'')}</div>`+
+ `<div class="stats">${stat('💰','Pemasukan',rp(pm),'in')}${stat('💸','Pengeluaran',rp(pg),'out',pgT?'termasuk '+rp(pgT)+' dari tabungan':'')}${stat('🏦','Tabungan bulan ini',rp(tb-pgT),tb-pgT<0?'out':'','Disetor '+rp(tb)+(pgT?', terpakai '+rp(pgT):''))}${stat('💵','Sisa bulan ini',rp(sisa),sisa<0?'out':'')}</div>`+
  `<section class="pc"><h3>📊 Transaksi Terbaru</h3>`+(rec.length?rec.map(r=>{const p=r.Tipe==='Pemasukan',o=r.Tipe==='Pengeluaran';return `<div class="ln"><span><b style="color:var(--ink)">${esc(r.Deskripsi)}</b><small style="display:block">${esc(r.Tanggal)} / ${esc(r.Kategori)}</small></span><b class="${p?'in':o?'out':''}">${p?'+':o?'-':''}${rp(r['Jumlah (Rp)'])}</b></div>`}).join(''):'<p class="mut" style="margin:8px 12px">Belum ada transaksi.</p>')+`</section>`+gcards()+
  `<h2>Semua waktu</h2><div class="stats">${stat('🏦','Saldo tabungan',rp(tbAll-pgTA),'','Disetor '+rp(tbAll)+', terpakai '+rp(pgTA))}${stat('💼','Saldo kas',rp(kas),kas<0?'out':'')}</div><div class="qa"><button class="add" onclick="edit('Transaksi',0,{Tipe:'Pengeluaran',Metode:'Tabungan',Kategori:'Lainnya'})">➖ Pakai tabungan</button><button class="add" onclick="edit('Transaksi',0,{Tipe:'Tabungan',Kategori:'Tabungan'})">➕ Setor tabungan</button></div>`+
  `<div class="cards">`+
@@ -304,7 +312,7 @@ function edit(sh,id,pre){
   else if(t==='area')i=`<textarea name="${n}" rows="2">${vv}</textarea>`;
   else if(t==='img')i=`<input type="file" accept="image/*" onchange="up(this)"><input type="hidden" name="${n}" value="${vv}"><div class="pv">${thumb(v)}</div>`;
   else i=`<input name="${n}" type="${t==='date'?'date':t==='num'||t==='pct'?'number':'text'}" ${t==='num'||t==='pct'?'step="any" inputmode="decimal"':''} value="${vv}">`;
-  return `<label>${n}${i}</label>`}).join('');
+  return `<label>${n}${i}${HINT[k]?`<small class="mut" style="display:block;margin-top:4px">${HINT[k]}</small>`:''}</label>`}).join('');
  $('#sheet').innerHTML=`<form onsubmit="return save(event,'${sh}','${id||''}')"><h2>${id?'Ubah':'Tambah'} ${c.lbl}</h2>${fl}<p id="err" class="out"></p><div class="row"><button type="button" class="ghost" onclick="closeSheet()">Batal</button>${id?`<button type="button" class="del" onclick="del('${sh}','${id}')">Hapus</button>`:''}<button class="pri">Simpan</button></div></form>`;
  $('#sheet').hidden=false;
 }
