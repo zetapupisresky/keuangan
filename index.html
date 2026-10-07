@@ -59,6 +59,7 @@ input,select,textarea{display:block;width:100%;padding:10px;margin-top:4px;borde
 .lg{display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0;cursor:pointer}.lg i{width:10px;height:10px;border-radius:50%;flex:none}.lg span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lg b{font-weight:600}
 .hb{cursor:pointer;margin:9px 0}.hl{display:flex;justify-content:space-between;gap:8px;font-size:13px}.hl span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bt2{height:10px;background:var(--line);border-radius:5px;overflow:hidden;margin-top:3px}.bt2 i{display:block;height:100%;border-radius:5px}
+.ld{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:60px 20px;color:var(--text-mute)}.ld b{color:var(--text)}.sp{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp 1s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
 #toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:var(--ink);color:var(--on-ink);padding:9px 14px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20;max-width:90%}
 #toast.s{opacity:1}
 
@@ -89,7 +90,7 @@ h1,h2,h3,.stat b{font-family:var(--serif);font-weight:500}
 <label id="code" hidden>Kode daftar (kosongkan untuk akun pertama)<input name="c"></label>
 <p id="lerr" class="out"></p><button class="pri">Lanjut</button></form>
 <button class="link" id="sw" onclick="setMode(mode==='login'?'register':'login')">Belum punya akun? Daftar</button></div>
-<div id="app" hidden><header><h1>Keuangan</h1><button class="ib" id="tbtn" onclick="themePanel()" aria-label="Tema">🎨</button><button class="ib" id="bell" onclick="togglePanel()" aria-label="Notifikasi">🔔<span id="badge" hidden></span></button><button class="ib" onclick="load()" aria-label="Muat ulang">↻</button><button class="ib" onclick="logout()">Keluar</button></header>
+<div id="app" hidden><header><h1>Keuangan</h1><button class="ib" id="tbtn" onclick="themePanel()" aria-label="Tema">🎨</button><button class="ib" id="bell" onclick="togglePanel()" aria-label="Notifikasi">🔔<span id="badge" hidden></span></button><button class="ib" onclick="load(true)" aria-label="Muat ulang">↻</button><button class="ib" onclick="logout()">Keluar</button></header>
 <main id="main"></main>
 <nav><button data-t="Ringkasan">Ringkasan</button><button data-t="Transaksi">Transaksi</button><button data-t="Rencana Liburan">Liburan</button><button data-t="Rencana Program">Program</button><button data-t="Rencana Pembelian">Pembelian</button><button data-t="Kalkulator">Kalkulator</button></nav></div>
 <div id="sheet" hidden></div><div id="panel" hidden></div><div id="bar"></div><div id="toast"></div>
@@ -247,23 +248,23 @@ const D={
 'Rencana Pembelian':{lbl:'rencana pembelian',ttl:'Nama Barang',amt:'Harga (Rp)',meta:r=>[r['Cicilan per Bulan (Rp)']?rp(r['Cicilan per Bulan (Rp)'])+'/bln':''].filter(Boolean).join(' / '),
  f:[['Nama Barang'],['Kategori'],['Harga (Rp)','num'],['Uang Muka / DP (Rp)','num'],['Bunga per Tahun (%)','pct'],['Jenis Bunga',['Efektif','Flat']],['Tenor (bulan)','num'],['Tgl Rencana Beli','date'],['Tgl Jatuh Tempo Cicilan (1-31)','num'],['Status',['Rencana','Menabung','Cicilan Berjalan','Lunas','Batal']],['Catatan','area'],['Link Gambar','img']]}
 };
-let ym=iso(new Date()).slice(0,7), tok=localStorage.tok, data=JSON.parse(localStorage.cache||'null'), tab='Ringkasan', mode='login', timer;
+let lfail='', ym=iso(new Date()).slice(0,7), tok=localStorage.tok, data=JSON.parse(localStorage.cache||'null'), tab='Ringkasan', mode='login', timer;
 
-async function api(a){const r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({...a,token:tok})});const t=await r.text();let j;try{j=JSON.parse(t)}catch(e){const x=new Error('Server belum menjawab dengan benar. Data mungkin sudah tersimpan; daftar dimuat ulang otomatis.');x.soft=1;throw x}if(!j.ok)throw new Error(j.error);return j}
+async function api(a){const ac=new AbortController(),to=setTimeout(()=>ac.abort(),45000);let t;try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({...a,token:tok}),signal:ac.signal});t=await r.text()}catch(e){const x=new Error(e.name==='AbortError'?'Server terlalu lama menjawab. Coba lagi.':'Tidak bisa terhubung ke server. Periksa koneksi internet.');x.soft=1;throw x}finally{clearTimeout(to)}let j;try{j=JSON.parse(t)}catch(e){const x=new Error('Server belum menjawab dengan benar. Data mungkin sudah tersimpan; daftar dimuat ulang otomatis.');x.soft=1;throw x}if(!j.ok)throw new Error(j.error);return j}
 function toast(t){const e=$('#toast');e.textContent=t;e.className='s';clearTimeout(e.t);e.t=setTimeout(()=>e.className='',2600)}
 let nb=0;function busy(b){nb=Math.max(0,nb+(b?1:-1));$('#bar').style.width=nb?'70%':'0';document.body.style.cursor=nb?'progress':''}
 function setMode(m){mode=m;$('#code').hidden=m!=='register';$('#lt').textContent=m==='login'?'Masuk':'Buat akun';$('#sw').textContent=m==='login'?'Belum punya akun? Daftar':'Sudah punya akun? Masuk'}
-async function auth(e){e.preventDefault();const f=e.target;busy(1);try{const j=await api({action:mode,username:f.u.value,password:f.p.value,code:f.c.value});tok=j.token;localStorage.tok=tok;start()}catch(x){$('#lerr').textContent=x.message}busy(0);return false}
-function start(){$('#login').hidden=true;$('#app').hidden=false;render();load();clearInterval(timer);timer=setInterval(fire,30*60e3)}
+async function auth(e){e.preventDefault();const f=e.target;busy(1);try{const j=await api({action:mode,username:f.u.value,password:f.p.value,code:f.c.value});tok=j.token;localStorage.tok=tok;if(j.data){data=j.data;localStorage.cache=JSON.stringify(data);scanNew()}start(!!j.data)}catch(x){$('#lerr').textContent=x.message}busy(0);return false}
+function start(sk){$('#login').hidden=true;$('#app').hidden=false;render();if(sk)fire();else load();clearInterval(timer);timer=setInterval(fire,30*60e3)}
 async function logout(){try{await api({action:'logout'})}catch(e){}localStorage.removeItem('tok');['cache','known','log'].forEach(k=>localStorage.removeItem(k));tok=data=null;$('#app').hidden=true;$('#login').hidden=false}
-async function load(){busy(1);try{data=(await api({action:'list'})).data;localStorage.cache=JSON.stringify(data)}catch(x){if(/Sesi/.test(x.message)){busy(0);return logout()}toast('Offline: menampilkan data terakhir')}busy(0);if(data)scanNew();render();fire()}
+async function load(fresh){busy(1);lfail='';try{data=(await api({action:'list',fresh:fresh===true})).data;localStorage.cache=JSON.stringify(data)}catch(x){if(/Sesi/.test(x.message)){busy(0);return logout()}if(data)toast('Offline: menampilkan data terakhir');else lfail=x.message}busy(0);if(data)scanNew();render();fire()}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;render()});
 
 function render(){
  badge();
  if(tab==='Kalkulator')return kalk($('#main'));
  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));
- const m=$('#main');if(!data){m.innerHTML='<p class="mut">Memuat data...</p>';return}
+ const m=$('#main');if(!data){m.innerHTML=lfail?'<p class="out">'+esc(lfail)+'</p><button class="add" onclick="load()">Coba lagi</button>':'<div class="ld"><div class="sp"></div><b>Mengambil data dari Google Sheets...</b><small>Pertama kali bisa 5-15 detik karena server Google perlu "bangun" dulu. Berikutnya jauh lebih cepat.</small></div>';return}
  if(tab==='Ringkasan')return summary(m);
  const c=D[tab],rows=data[tab].rows.slice().reverse();
  m.innerHTML=`<button class="add" onclick="edit('${tab}')">+ Tambah ${c.lbl}</button>`+(rows.length?rows.map(r=>{

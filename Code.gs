@@ -23,7 +23,7 @@ function handle(d) {
   const t = P.getProperty('t_' + d.token), s = t && JSON.parse(t);
   if (!s || s.e < Date.now()) throw new Error('Sesi habis, silakan masuk lagi');
   switch (d.action) {
-    case 'list': return {ok: true, data: listAll()};
+    case 'list': return {ok: true, data: listCached(d.fresh)};
     case 'save': return save(d);
     case 'delete': return del(d);
     case 'upload': return upload(d);
@@ -55,7 +55,8 @@ function auth(d) {
   for (const k in all) if (k.indexOf('t_') === 0 && JSON.parse(all[k]).e < Date.now()) P.deleteProperty(k);
   const t = Utilities.getUuid() + Utilities.getUuid();
   P.setProperty('t_' + t, JSON.stringify({u: u, e: Date.now() + 30 * 864e5}));
-  return {ok: true, token: t, user: u};
+  let dt = null; try { dt = listCached(true); } catch (e) {}  // data ikut dikirim agar tidak perlu satu permintaan lagi
+  return {ok: true, token: t, user: u, data: dt};
 }
 
 function tbl(n) { const s = ss().getSheetByName(n); if (!s || !SHEETS[n]) throw new Error('Sheet tidak ditemukan: ' + n); return s; }
@@ -65,6 +66,14 @@ function rowObj(h, r, tz) {
   const x = {};
   h.forEach((k, i) => { let c = r[i]; if (c instanceof Date) c = Utilities.formatDate(c, tz, 'yyyy-MM-dd'); x[k] = c; });
   return x;
+}
+
+function listCached(fresh) {  // cache 5 menit; dihapus otomatis saat ada simpan/hapus
+  const c = CacheService.getScriptCache();
+  if (!fresh) { const s = c.get('list'); if (s) return JSON.parse(s); }
+  const d = listAll();
+  try { c.put('list', JSON.stringify(d), 300); } catch (e) {}  // gagal jika data > 100 KB: tidak apa-apa
+  return d;
 }
 
 function listAll() {
@@ -102,6 +111,7 @@ function save(d) {
   SpreadsheetApp.flush();
   const res = {ok: true, id: id, row: rowObj(h, rg.getValues()[0], tz)};
   if (rid) cache.put(rid, JSON.stringify(res), 600);
+  cache.remove('list');
   return res;
 }
 
@@ -110,6 +120,7 @@ function del(d) {
   if (i < 0) throw new Error('Data tidak ditemukan');
   const rg = s.getRange(i + 2, 1, 1, s.getLastColumn());
   rg.setValues([rg.getFormulas()[0].map(f => f || '')]);
+  CacheService.getScriptCache().remove('list');
   return {ok: true};
 }
 
