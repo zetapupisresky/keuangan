@@ -182,7 +182,7 @@ const PAL=['var(--accent)','var(--accent2)','var(--negative)','#5B8DEF','#9B6BD3
 const TC={Pemasukan:'var(--accent2)',Pengeluaran:'var(--negative)',Tabungan:'var(--accent)'};
 const SC={'Belum Mulai':'#8A97A3',Berjalan:'var(--accent)',Selesai:'var(--accent2)',Ditunda:'var(--negative)','Belum Bayar':'var(--negative)',DP:'var(--accent)',Lunas:'var(--accent2)',Rencana:'#8A97A3',Menabung:'#5B8DEF','Cicilan Berjalan':'var(--accent)',Batal:'#B0B6BD'};
 const CC={Selesai:'ok',Lunas:'ok',Berjalan:'warn',DP:'warn',Menabung:'warn','Cicilan Berjalan':'warn',Ditunda:'bad','Belum Bayar':'bad','Belum Mulai':'mut',Rencana:'mut',Batal:'mut'};
-const chip=(tab,r)=>{const s=tab==='Rencana Liburan'?(r['Status Bayar']||'Belum Bayar'):tab==='Transaksi'?'':r.Status;return s?`<span class="chip c-${CC[s]||'mut'}">${esc(s)}</span>`:''};
+const chip=(tab,r)=>{const s=tab==='Rencana Liburan'?(r['Status Bayar']||'Belum Bayar'):tab==='Transaksi'?(String(r.Catatan||'').startsWith('Otomatis dari')?'Otomatis':''):r.Status;return s?`<span class="chip c-${CC[s]||'mut'}">${esc(s)}</span>`:''};
 const BL=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 const GD={tx:{tipe:'Semua',by:'Kategori',metric:'Rp',form:'Donat',per:'Semua waktu'},met:{tipe:'Semua',metric:'Frekuensi',form:'Batang',per:'Semua waktu'},top:{tipe:'Semua',by:'Kategori',n:'5',per:'Semua waktu'},trn:{n:'6',g:'Semua',y:'Otomatis (mulai 0)',lo:'',hi:''},lib:{by:'Trip',metric:'Estimasi',form:'Batang'},prg:{by:'Status',metric:'Jumlah program',form:'Donat'},bel:{by:'Status',metric:'Jumlah barang',form:'Donat'}};
 let GF=null;const gf=()=>GF||(GF=JSON.parse(localStorage.gf||'{}'));
@@ -245,6 +245,7 @@ function belCard(){const id='bel',B=data['Rencana Pembelian'].rows,by=gv(id,'by'
 const G={tx:()=>txCard('tx','📊 Grafik transaksi'),met:()=>txCard('met','💳 Metode pembayaran','Metode'),top:topCard,trn:trendCard,lib:libCard,prg:prgCard,bel:belCard};
 const gcards=()=>'<h2>📈 Grafik</h2>'+Object.values(G).map(f=>f()).join('');
 
+const paidN=r=>data.Transaksi.rows.filter(t=>String(t.Catatan||'').includes('['+r.ID+']')).length;
 const HINT={'Jenis Bunga':'Efektif = cicilan tetap (anuitas), umum untuk KPR bank. Flat = bunga dihitung dari pokok awal, umum untuk kredit motor, mobil, dan barang.'};
 const D={
 'Transaksi':{lbl:'transaksi',ttl:'Deskripsi',amt:'Jumlah (Rp)',meta:r=>[r.Tanggal,r.Kategori,r.Metode].filter(Boolean).join(' / '),
@@ -253,7 +254,7 @@ const D={
  f:[['Tujuan / Trip'],['Tgl Mulai','date'],['Tgl Selesai','date'],['Kategori Biaya',['Transport','Akomodasi','Makan','Tiket / Aktivitas','Oleh-oleh','Lain-lain']],['Rincian','area'],['Estimasi (Rp)','num'],['Aktual (Rp)','num'],['Status Bayar',['Belum Bayar','DP','Lunas']],['Catatan','area'],['Link Gambar','img']]},
 'Rencana Program':{lbl:'rencana program',ttl:'Nama Program',amt:'Anggaran (Rp)',meta:r=>[r['Progress (%)']!==''?Math.round(r['Progress (%)']*100)+'%':'',r['Target Selesai']].filter(Boolean).join(' / '),
  f:[['Nama Program'],['Deskripsi / Tujuan','area'],['Kategori'],['Tgl Mulai','date'],['Target Selesai','date'],['Anggaran (Rp)','num'],['Realisasi (Rp)','num'],['Prioritas',['Tinggi','Sedang','Rendah']],['Status',['Belum Mulai','Berjalan','Selesai','Ditunda']],['Progress (%)','pct'],['Catatan','area'],['Link Gambar','img']]},
-'Rencana Pembelian':{lbl:'rencana pembelian',ttl:'Nama Barang',amt:'Harga (Rp)',meta:r=>[r['Cicilan per Bulan (Rp)']?rp(r['Cicilan per Bulan (Rp)'])+'/bln':''].filter(Boolean).join(' / '),
+'Rencana Pembelian':{lbl:'rencana pembelian',ttl:'Nama Barang',amt:'Harga (Rp)',meta:r=>[r['Cicilan per Bulan (Rp)']?rp(r['Cicilan per Bulan (Rp)'])+'/bln':'',paidN(r)?paidN(r)+'/'+(r['Tenor (bulan)']||'?')+' dibayar':''].filter(Boolean).join(' / '),
  f:[['Nama Barang'],['Kategori'],['Harga (Rp)','num'],['Uang Muka / DP (Rp)','num'],['Bunga per Tahun (%)','pct'],['Jenis Bunga',['Efektif','Flat']],['Tenor (bulan)','num'],['Tgl Rencana Beli','date'],['Tgl Jatuh Tempo Cicilan (1-31)','num'],['Status',['Rencana','Menabung','Cicilan Berjalan','Lunas','Batal']],['Catatan','area'],['Link Gambar','img']]}
 };
 let lfail='', ym=iso(new Date()).slice(0,7), tok=localStorage.tok, data=JSON.parse(localStorage.cache||'null'), tab='Ringkasan', mode='login', timer;
@@ -334,6 +335,7 @@ function reminders(){
   const day=+r['Tgl Jatuh Tempo Cicilan (1-31)'];if(r.Status!=='Cicilan Berjalan'||!day)return;
   const y=now.getFullYear(),mo=now.getMonth();let due=new Date(y,mo,Math.min(day,new Date(y,mo+1,0).getDate()));
   if(due<T0)due=new Date(y,mo+1,Math.min(day,new Date(y,mo+2,0).getDate()));
+  if(data.Transaksi.rows.some(t=>t.Tanggal===iso(due)&&String(t.Catatan||'').includes('['+r.ID+']')))return;
   const d=Math.round((due-T0)/864e5);add('c'+r.ID,'Cicilan '+r['Nama Barang'],rp(r['Cicilan per Bulan (Rp)'])+' jatuh tempo '+wk(d),d,iso(due))});
  const tr={};
  data['Rencana Liburan'].rows.forEach(r=>{if(r['Status Bayar']==='Lunas')return;const nm=r['Tujuan / Trip'],d=dd(r['Tgl Mulai']);if(d===null)return;
